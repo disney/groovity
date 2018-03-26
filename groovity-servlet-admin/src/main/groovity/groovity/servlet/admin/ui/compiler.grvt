@@ -1,0 +1,239 @@
+/*******************************************************************************
+ * © 2018 Disney | ABC Television Group
+ *
+ * Licensed under the Apache License, Version 2.0 (the "Apache License")
+ * with the following modification; you may not use this file except in
+ * compliance with the Apache License and the following modification to it:
+ * Section 6. Trademarks. is deleted and replaced with:
+ *
+ * 6. Trademarks. This License does not grant permission to use the trade
+ *     names, trademarks, service marks, or product names of the Licensor
+ *     and its affiliates, except as required to comply with Section 4(c) of
+ *     the License and to reproduce the content of the NOTICE file.
+ *
+ * You may obtain a copy of the Apache License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the Apache License with the above modification is
+ * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the Apache License for the specific
+ * language governing permissions and limitations under the Apache License.
+ *******************************************************************************/
+import com.disney.groovity.servlet.admin.ClusterMember;
+import javax.servlet.http.Cookie;
+
+static args = [
+	selectedHosts:new String[0],	
+	selectedFiles:new String[0],
+	userName:null,
+	comment:null,
+	forceAll:false
+]
+
+load '/groovity/servlet/admin/lib/compilerSupport'
+
+@Field dateLib = load('/groovity/servlet/admin/lib/date');
+@Field clusterClient = run('/groovity/servlet/admin/lib/clusterClient')
+
+Map sources = [:];
+getClass().classLoader.groovity.sourceLocators.each{ it.each{
+	source ->
+	sources.put(source.path,source.lastModified);
+}}
+members = new ArrayList(clusterClient.clusterProvider.members)
+
+//TODO this is for testing only
+//members << new ClusterMember(InetAddress.getLocalHost(),898989,UUID.nameUUIDFromBytes("SampleHost".bytes));
+
+if(!selectedHosts){
+	selectedHosts = members.collect{ it.uuid.toString() }
+}
+
+if(userName){
+	//username being set, update the cookie
+	Cookie userCookie = new Cookie("groovityUser",userName);
+	userCookie.setPath('/groovity/servlet/admin/');
+	if(userName=='DELETE_ME'){
+		//blank, actually deleting the cookie
+		userCookie.maxAge=0;
+		userName = null;
+	}
+	else{
+		//10 years
+		userCookie.maxAge=315360000;
+	}
+	response.addCookie(userCookie);
+}
+else{
+	//look for user name in cookies
+	Cookie userCookie = ((request.cookies) as List).find{it.name=='groovityUser'};
+	if(userCookie){
+		userName = userCookie.value
+	}
+}
+if(request.method=='POST' && userName){
+	if(forceAll){
+		compilerSupport.compileAll(userName,members.findAll({ selectedHosts.contains(it.uuid.toString())}),comment);
+	}
+	else if(selectedFiles){
+		compilerSupport.compile(userName,members.findAll({ selectedHosts.contains(it.uuid.toString())}),comment,selectedFiles);
+	}
+	//now sleep briefly to let status update
+	Thread.sleep(100);
+}
+compilerStatus = compilerSupport.getCompilerStatus(members);
+changedSources = new HashSet();
+selectedHosts.each{uuid->
+	def member = members.find{ it.uuid.toString().equals(uuid)}
+	if(member!=null){
+		def compiledDates = compilerStatus.get(member)?.status;
+		if(compiledDates!=null && compiledDates.size() > 0){
+			sources.each{ path, lastMod ->
+				if(!changedSources.contains(path)){
+					def entry = compiledDates.find{it[0]==path};
+					if(entry!=null){
+						def compiledDate = entry[1];
+						if(compiledDate != lastMod){
+							changedSources << path;
+						}
+					}
+					else{
+						changedSources << path;
+					}
+				}
+			}
+			compiledDates.each{ path, lastMod ->
+				if(!changedSources.contains(path) && !sources.containsKey(path)){
+					//deleted file
+					changedSources << path;
+				}	
+			}
+		}
+	}
+}
+if(!selectedFiles){
+	selectedFiles = changedSources
+}
+<~   
+<g:if test="${compilerSupport.isCompiling()}">
+<meta http-equiv="refresh" content="2">
+</g:if>
+<div style="width:270px;float:left">
+	<form name="compilerForm" id="compilerForm" action="compiler" method="GET">
+	<input type="hidden" name="forceAll" id="forceAll" value="false" />
+	<strong>User</strong>
+	<div style="padding:4px">
+		<g:if test="${userName}">
+			<script>
+				function changeUsername(){
+					var input = document.createElement('input');
+				    input.type = 'hidden';
+				    input.name = 'userName';
+					input.value = 'DELETE_ME';
+					document.getElementById('compilerForm').appendChild(input);
+					document.compilerForm.submit();
+				}
+			</script>
+			${userName}  <input type="button" value="X" onclick="changeUsername();"/>
+		</g:if>
+		<g:else>
+			<input type="text" name="userName" />  <input type="button" value="set" onclick="document.compilerForm.submit()"/>
+		</g:else>
+	</div>
+	<strong>Hosts</strong>
+	<div style="padding:4px">
+		<select name="selectedHosts" multiple="multiple" onchange="document.compilerForm.submit()">
+			<g:each var="host" in="${members}">
+				<option value="${host.uuid}"
+				<g:if test="${selectedHosts.contains(host.uuid.toString())}">
+					selected="selected"
+				</g:if>
+				>${host.address.hostName}:${host.port}</option>
+			</g:each>
+		</select>
+	</div>
+	<strong>Files</strong>
+	<div style="padding:4px">
+		<select name="selectedFiles" multiple="multiple">
+			<g:each var="source" in ="${changedSources}">
+				<option value = "${source}"
+				<g:if test="${selectedFiles.contains(source)}">
+					selected="selected"
+				</g:if>
+				>${source}</option>
+			</g:each>
+		</select>
+	</div>
+	<strong>Comment</strong>
+	<div style="padding:4px">
+		<textarea name="comment" rows="4" cols="30">${comment}</textarea>
+	</div>
+	<div style="padding:4px">
+		<input type="button" value="Refresh" onclick="document.compilerForm.submit()">
+		<button type="submit" formmethod="post"
+		<g:if test="${!userName}">
+			disabled="disabled"
+		</g:if>
+		>Compile</button>
+		
+	</div>
+	<hr/>
+	<div style="padding:4px">
+		<div style="color:red;font-size:0.8em">warning: not for casual use</div>
+		<button type="submit" onclick="document.compilerForm.forceAll.value='true'" formmethod="post"
+		<g:if test="${!userName}">
+			disabled="disabled"
+		</g:if>
+		>Force Compile All</button>
+	</div>
+	</form>
+</div>
+<div style="margin-left:280px;">
+	<g:each var="host" in="${members}">
+		<strong style="font-size:1.38em">${host.address.hostName}:${host.port}</strong>
+		<g:set var="status" value="${compilerStatus.get(host)}" />
+		<g:set var="errors" value="${status?.events.findAll{ it.error!=null } }" />
+		<g:set var="deleted" value="${status?.events.findAll{ it.change=='remove' } }" />
+		<g:set var="successful" value="${status?.events.findAll{ it.error==null && (it.change=='add' || it.change=='update') } }" />
+		<div style="padding:4px">
+			<g:if test="${status?.busy !=null }">
+				<span style="color:red">${status.busy}</span>
+			</g:if>
+			<g:else>
+				<g:if test="${errors!=null && !errors.isEmpty()}">
+					<strong>${errors.size()} errors</strong>
+					<g:each var="err" in="${errors}">
+						<div style="padding:4px">
+							<div style="padding:4px;float:right">${dateLib.formatRelative(err.time)}</div>
+							<div style="padding:4px;color:red">${err.path}</div>
+							<g:if test="${err.error!=null}">
+								<pre>${err.error}</pre>
+							</g:if>
+						</div>
+					</g:each>
+				</g:if>
+				<g:if test="${successful!=null && !successful.isEmpty()}">
+					<strong>${successful.size()} successfully compiled</strong>
+					<g:each var="success" in="${successful}">
+						<div style="padding:4px">
+							<div style="padding:4px;float:right">${dateLib.formatRelative(success.time)}</div>
+							<div style="padding:4px;">${success.path}</div>
+						</div>
+					</g:each>
+				</g:if>
+				<g:if test="${deleted!=null && !deleted.isEmpty()}">
+					<strong>${deleted.size()} deleted classes</strong>
+					<g:each var="del" in="${deleted}">
+						<div style="padding:4px">
+							<div style="padding:4px;float:right">${dateLib.formatRelative(del.time)}</div>
+							<div style="padding:4px;">${del.path}</div>
+						</div>
+					</g:each>
+				</g:if>
+			</g:else>
+		</div>
+	</g:each>
+</div>
+~>

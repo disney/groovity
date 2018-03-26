@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE auth SYSTEM "auth.dtd">
+<auth>
+	<!-- <basic>
+		<realm>
+			Basic Users
+		</realm>
+		<passwords>
+			<keyId>wonton</keyId>
+			<password>pickle</password>
+		</passwords>
+	</basic> -->
+	<digest>
+		<realm>
+			Digest Users
+		</realm>
+		<passwords>
+			<keyId>wicked</keyId>
+			<password>sterling</password>
+		</passwords>
+	</digest>
+	<signature>
+		<realm>API Users</realm>
+		<keys>
+			<keyId>apiUser123</keyId>
+			<key algorithm="hmac-sha256">someBase64Secret</key>
+		</keys>
+		<headers>(request-target) host date</headers>
+	</signature>
+    <!--<signature>
+        <realm>RSA User</realm>
+        <keystore>
+            <location>file:/Users/kobar004/server_keystore.jceks</location>
+            <type>JCEKS</type>
+            <ttl>1000</ttl>
+            <password>publicPassword</password>
+        </keystore>
+    </signature>-->
+</auth>

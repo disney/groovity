@@ -1,0 +1,36 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	
+	<parent>
+		<groupId>com.disney.groovity</groupId>
+		<artifactId>uri-parcel-parent</artifactId>
+		<version>2.0.0-rc.16-SNAPSHOT</version>
+	</parent>
+	
+	<artifactId>uri-parcel-keys</artifactId>
+	<packaging>jar</packaging>
+	<name>URI parcel security key parsing support</name>
+
+	<properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+	</properties>
+
+	<dependencies>
+		<dependency>
+			<groupId>com.disney.groovity</groupId>
+			<artifactId>uri-parcel-core</artifactId>
+			<version>${project.version}</version>
+		</dependency>	
+		<dependency>
+	    	<groupId>org.bouncycastle</groupId>
+		    <artifactId>bcprov-jdk15on</artifactId>
+		    <version>${bouncycastle.version}</version>
+		</dependency>
+		<dependency>
+		    <groupId>org.bouncycastle</groupId>
+		    <artifactId>bcpkix-jdk15on</artifactId>
+		    <version>${bouncycastle.version}</version>
+		</dependency>
+	</dependencies>
+
+</project>

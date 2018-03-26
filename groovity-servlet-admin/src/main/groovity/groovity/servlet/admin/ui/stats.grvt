@@ -1,0 +1,206 @@
+/*******************************************************************************
+ * © 2018 Disney | ABC Television Group
+ *
+ * Licensed under the Apache License, Version 2.0 (the "Apache License")
+ * with the following modification; you may not use this file except in
+ * compliance with the Apache License and the following modification to it:
+ * Section 6. Trademarks. is deleted and replaced with:
+ *
+ * 6. Trademarks. This License does not grant permission to use the trade
+ *     names, trademarks, service marks, or product names of the Licensor
+ *     and its affiliates, except as required to comply with Section 4(c) of
+ *     the License and to reproduce the content of the NOTICE file.
+ *
+ * You may obtain a copy of the Apache License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the Apache License with the above modification is
+ * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the Apache License for the specific
+ * language governing permissions and limitations under the Apache License.
+ *******************************************************************************/
+static args = [
+	selectedHosts:new String[0],
+	key:null,
+	refresh:false,
+	sortBy:"gross"
+]
+
+load '/groovity/servlet/admin/lib/compilerSupport'
+
+@Field clusterClient = run('/groovity/servlet/admin/lib/clusterClient')
+
+members = new ArrayList(clusterClient.clusterProvider.members)
+
+if(!selectedHosts){
+	selectedHosts = members.collect{ it.uuid.toString() }
+}
+
+boolean reset = false;
+if(request.method=="POST"){
+	reset=true;
+}
+statistics = compilerSupport.getStatistics(members.findAll{ selectedHosts.contains(it.uuid.toString()) }, refresh, reset);
+
+//build up the aggregates unsorted at first, sort later
+aggregateStats = new HashMap<String,Map>();
+statistics.each{ member, stats ->
+	stats?.each{	stat ->
+		Map statMap = aggregateStats.get(stat.key);
+		if(statMap==null){
+			aggregateStats.put(stat.key,new HashMap(stat));
+		}
+		else{
+			statMap.executionCount += stat.executionCount as long;
+			statMap.grossTime += stat.grossTime as long;
+			statMap.netTime += stat.netTime as long;
+			if(stat.maxTime>statMap.maxTime){
+				statMap.maxTime = stat.maxTime;
+			}
+			statCallees = statMap.callees;
+			if(stat.callees!=null){
+				stat.callees.each{ cKey, cTime ->
+					def oldTime = statCallees.get(cKey);
+					if(oldTime!=null){
+						statCallees.put(cKey, oldTime+ cTime);
+					}
+					else{
+						statCallees.put(cKey, cTime);
+					}
+				}
+			}
+		}
+	}
+}
+selectedStat = null;
+callers = null
+sortedStats = new ArrayList(aggregateStats.values()).sort(true, sortBy=='gross'? { -it.grossTime } :{ -it.netTime });
+if(sortedStats.size() > 0){
+	grossestTime = sortedStats[0].grossTime;
+	
+	if(!key){
+		key = sortedStats[0].key;
+	}
+	
+	selectedStat = aggregateStats.get(key);
+	if(selectedStat==null){
+		selectedStat = sortedStats[0];
+	}
+	sortedCallees = new ArrayList(selectedStat.callees.entrySet()).sort{ -it.value }
+	callers = sortedStats.findAll{ it.callees.containsKey(selectedStat.key) }.collectEntries{ [ it.key, it.grossTime ? it.callees.get(selectedStat.key) / it.grossTime : 0] }
+}
+<~   
+<div style="width:35%;float:left">
+	<form name="statsForm" id="statsForm" action="stats" method="GET">
+	<input type="hidden" id="key" name="key" value="${key}" />
+	<input type="hidden" id="refresh" name="refresh" value="false" />
+	<strong>Hosts</strong>
+	<div style="padding:4px">
+		<select name="selectedHosts" multiple="multiple" onchange="document.statsForm.submit()">
+			<g:each var="host" in="${members}">
+				<option value="${host.uuid}"
+				<g:if test="${selectedHosts.contains(host.uuid.toString())}">
+					selected="selected"
+				</g:if>
+				>${host.address.hostName}:${host.port}</option>
+			</g:each>
+		</select>
+	</div>
+	<div style="padding:4px">
+		<input type="button" value="Refresh" onclick="document.statsForm.refresh.value='true';document.statsForm.submit()">
+		<button type="submit" formmethod="post" >Reset stats</button>
+	</div>
+	<strong>Most Expensive</strong> sorted by
+		<select name="sortBy" onchange="document.statsForm.submit()">
+			<option value="gross" 
+				<g:if test="${sortBy=='gross'}">
+					selected=selected
+				</g:if>
+			>Gross time</option>
+			<option value="net"
+			<g:if test="${sortBy=='net'}">
+				selected=selected
+			</g:if>
+			>Net time</option>
+		</select>
+	<div id="statList" style="position:relative;padding:2px;font-size:0.8em;height:75vh;overflow-y:auto;overflow-x:hidden">
+		<g:set var="percentNumeric" value="${false}" />
+		<g:each var="stat" in="${sortedStats}">
+			<g:set var="percentLabel">
+				<a onclick="document.statsForm.key.value='${stat.key}';document.statsForm.submit();" href="#"
+					<g:if test="${stat.key==key}">
+						class="selectedStatKey"
+					</g:if>
+				><g:write value="${stat.key}" escape="html"/></a>
+			</g:set>
+			<g:set var="percentValue" value="${stat.grossTime/grossestTime}" />
+			<div
+				<g:if test="${stat.key==key}">
+					id="selectedStatKey"
+				</g:if>
+			>
+			<g:run path="/groovity/servlet/admin/lib/percentBar" />
+			</div>
+		</g:each>
+	</div>
+	</form>
+</div>
+<script>
+window.addEventListener('load',function(){
+	var sel = document.getElementById('selectedStatKey');
+	if(sel!=null){
+		document.getElementById('statList').scrollTop = sel.offsetTop;
+	}
+});
+</script>
+<div style="margin-left:36%">
+	<g:if test="${selectedStat}">
+	<strong style="font-size:1.38em"><g:write value="${selectedStat.key}" escape="html"/></strong>
+	<g:if test="${selectedStat.executionCount>0}">
+		<div style="padding:8px 12px">
+			<strong>
+				<g:write value="${(selectedStat.grossTime/selectedStat.executionCount)/1000000.0}" format="%,.3f"/>
+			</strong>
+			ms avg
+			<strong style="margin-left:8px">
+				${selectedStat.executionCount}
+			</strong> 
+			times
+		</div>
+		<div style="font-size:0.9em;">
+			<g:set var="percentLabel" value="Net" />
+			<g:set var="percentValue" value="${selectedStat.netTime/selectedStat.grossTime}" />
+			<g:set var="percentNumeric" value="${true}" />
+			<g:set var="percentFG" value="#ffddaa" />
+			<g:run path="/groovity/servlet/admin/lib/percentBar" />
+			<g:set var="percentFG" value="#aaddff" />
+			<g:each var="callee" in="${sortedCallees}">
+				<g:set var="percentLabel">
+					<a onclick="document.statsForm.key.value='${callee.key}';document.statsForm.submit();" href="#"><g:write value="${callee.key}" escape="html"/></a>
+				</g:set>
+				<g:set var="percentValue" value="${callee.value/selectedStat.grossTime}" />
+				<g:run path="/groovity/servlet/admin/lib/percentBar" />
+			</g:each>
+		</div>
+		<g:if test="${callers}">
+			<div style="padding:8px 12px">
+				<strong>
+					Called by
+				</strong>
+			</div>
+			<div style="font-size:0.9em;">
+				<g:each var="caller" in="${callers}">
+					<g:set var="percentLabel">
+						<a onclick="document.statsForm.key.value='${caller.key}';document.statsForm.submit();" href="#"><g:write value="${caller.key}" escape="html"/></a>
+					</g:set>
+					<g:set var="percentValue" value="${caller.value}" />
+					<g:run path="/groovity/servlet/admin/lib/percentBar" />
+				</g:each>
+			</div>
+		</g:if>
+	</g:if>
+	</g:if>
+</div>
+~>

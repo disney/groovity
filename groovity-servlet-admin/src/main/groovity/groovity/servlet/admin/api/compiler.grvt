@@ -1,0 +1,130 @@
+/*******************************************************************************
+ * © 2018 Disney | ABC Television Group
+ *
+ * Licensed under the Apache License, Version 2.0 (the "Apache License")
+ * with the following modification; you may not use this file except in
+ * compliance with the Apache License and the following modification to it:
+ * Section 6. Trademarks. is deleted and replaced with:
+ *
+ * 6. Trademarks. This License does not grant permission to use the trade
+ *     names, trademarks, service marks, or product names of the Licensor
+ *     and its affiliates, except as required to comply with Section 4(c) of
+ *     the License and to reproduce the content of the NOTICE file.
+ *
+ * You may obtain a copy of the Apache License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the Apache License with the above modification is
+ * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the Apache License for the specific
+ * language governing permissions and limitations under the Apache License.
+ *******************************************************************************/
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import com.disney.groovity.Groovity;
+static web = [
+	path : "/groovity/servlet/admin/api/compiler",
+	output : "application/json",
+	charset : "UTF-8",
+	auth : [ policy:{run('/groovity/servlet/admin/apiPolicy')} ],
+	cors : [ policy:{run('/groovity/servlet/admin/apiPolicy')} ],
+	methods: ['GET','POST']
+]
+
+@Field Groovity factory = getClass().classLoader.groovity;
+
+if(request.method=='POST'){
+	//compile
+	compile(request,response);
+}
+else{
+	//status
+	status(request, response);
+}
+
+
+private void status(HttpServletRequest request, HttpServletResponse response) throws IOException
+{
+	Map result = new HashMap();
+	if(factory.isCompiling()){
+		result.put("busy", "This host is currently compiling, please wait");
+	}
+	else if("sources".equals(request.getParameter("show"))){
+		List sources = [];
+		factory.sourceLocators.each{ it.each{
+			source ->
+			sources << [source.path,source.lastModified];
+		}}
+		result.put("sources", sources);
+	}
+	else{
+		List events = factory.getCompilerEvents().values().collect{
+			event ->
+			return [path:event.path,time:event.time,change:event.change,error:event.error?.message];	
+		};
+		result.put("events", events);
+		result.put("status",factory.getCompiledStatus().collect{
+			key,value->
+			return [key,value];
+		});
+		/*List pending = factory.getChangedSources().collect{
+			source ->
+			return [path:source.getPath(), exists:source.exists(), modified: source.getLastModified() ];
+		};
+		result.put("pending", pending);
+		*/
+	}
+	write(value:result)
+}
+
+
+private void compile(HttpServletRequest request, HttpServletResponse response) throws IOException
+{
+	if(factory.isCompiling()){
+		response.sendError(500);
+	}
+	else{
+		String force = request.getParameter("force");
+		final boolean toForce = force==null?false:Boolean.valueOf(force);
+		String source = request.getParameter("source");
+		log(info:"User '${request.getParameter('user')}' starting compile with note '${request.getParameter('note')}'; source = ${source}; force = ${force};");
+		if("all".equals(source)){
+			new Thread(new Runnable(){
+				public void run(){
+					try{
+						factory.compileAll(toForce, true);
+					}
+					catch(Error e){
+						log(error:"Compiler threw error",thrown:e)
+					}
+				}
+			}).start();
+		}
+		else if(source!=null && source!=''){
+			final String[] sources = source.split(",");
+			new Thread(new Runnable(){
+				public void run(){
+					try{
+						factory.compile(toForce, true, Arrays.asList(sources));
+					}
+					catch(Error e){
+						log(error:"Compiler threw error",thrown:e)
+					}
+				}
+			}).start();
+		}
+		else{
+			response.sendError(400);
+			return; 
+		}
+	}
+	response.writer << "Compile is now taking place in the background, please check status for results";
+	response.flushBuffer();
+}

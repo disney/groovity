@@ -1,0 +1,266 @@
+/*******************************************************************************
+ * © 2018 Disney | ABC Television Group
+ *
+ * Licensed under the Apache License, Version 2.0 (the "Apache License")
+ * with the following modification; you may not use this file except in
+ * compliance with the Apache License and the following modification to it:
+ * Section 6. Trademarks. is deleted and replaced with:
+ *
+ * 6. Trademarks. This License does not grant permission to use the trade
+ *     names, trademarks, service marks, or product names of the Licensor
+ *     and its affiliates, except as required to comply with Section 4(c) of
+ *     the License and to reproduce the content of the NOTICE file.
+ *
+ * You may obtain a copy of the Apache License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the Apache License with the above modification is
+ * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the Apache License for the specific
+ * language governing permissions and limitations under the Apache License.
+ *******************************************************************************/
+import javax.crypto.spec.SecretKeySpec
+import com.disney.groovity.servlet.admin.ClusterMember;
+
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Logger;
+
+import org.apache.http.util.EntityUtils;
+
+static conf=[
+	'groovity.cluster.keyId' : 'groovityCluster',
+	'groovity.cluster.secret' : String.class,
+	'groovity.cluster.disableAuth' : false
+]
+@Field clusterClient = run('/groovity/servlet/admin/lib/clusterClient')
+
+@Function(info="Get the compiler events for a list of cluster members")
+public Map<ClusterMember, List<Map>> getCompilerStatus(List<ClusterMember> members){
+	members.each{member->
+		if(CompilerStateKeeper.compilingHosts.contains(member)){
+			//System.out.println("uncaching ${member} is busy")
+			//uncache host that are actively compiling so we get fresh results
+			cachePut(key:member,name:"CompilerEventCache",{})
+		}
+	}
+	cache(keys:members,name:"CompilerEventCache",refresh:"10",ttl:"120",{
+		//step 1, set up parallel async loading
+		map.each{ entry ->
+			def eventsUrl = "${load('/groovity/servlet/admin/lib/compilerSupport').getGroovitySystemUrl(entry.key)}/api/compiler";
+			entry.value = http(url:eventsUrl,async:true,timeout:10,{
+				load('/groovity/servlet/admin/lib/compilerSupport').signRequest();
+				handler({
+					if(httpResponse.statusLine.statusCode!=200){
+						Logger.getLogger("GroovyCompilerSupport").warning("response for groovy API ${httpResponse.statusLine}");
+						return null;
+						//throw new RuntimeException("Error issuing API call to ${eventsUrl} ${httpResponse.statusLine}: ${EntityUtils.toString(httpResponse.entity)}");
+					}
+					parse(value:httpResponse)
+				})
+			})
+		}	
+		//Step 2, wait for all results
+		map.each{ entry ->
+			try{
+				entry.value = entry.value.get();
+				if(entry.value.busy){
+					//System.out.println("Host ${entry.key} is busy")
+					//this host is compiling, we need to refresh more frequently
+					CompilerStateKeeper.compilingHosts.add(entry.key);
+				}
+				else{
+					CompilerStateKeeper.compilingHosts.remove(entry.key);
+				}
+			}
+			catch(Exception e){
+				entry.value = null;
+			}
+		}
+	});
+}
+
+@Function(info="trigger source compilation")
+public void compile(String userName, Collection<ClusterMember> members, String comment, String[] files){
+	members.each{ member ->
+		def compilerUrl = "${getGroovitySystemUrl(member)}/api/compiler?user=${userName}&source=${files.join(',')}&note=${URLEncoder.encode(comment)}";
+		http(method:"POST",url:compilerUrl,async:true,timeout:10,{
+			signRequest();
+			handler({
+				if(httpResponse.statusLine.statusCode!=200){
+					Logger.getLogger("GroovyCompilerSupport").warning("response for groovy API ${httpResponse.statusLine}");
+					//throw new RuntimeException("Error issuing API call to ${compilerUrl} ${httpResponse.statusLine}: ${EntityUtils.toString(httpResponse.entity)}");
+				}
+			})	
+		})
+		CompilerStateKeeper.compilingHosts.add(member);
+	}
+}
+
+@Function(info="force compile all")
+public void compileAll(String userName, Collection<ClusterMember> members,String comment){
+	members.each{ member ->
+		def compilerUrl = "${getGroovitySystemUrl(member)}/api/compiler?user=${userName}&force=true&source=all&note=${URLEncoder.encode(comment)}";
+		http(method:"POST",url:compilerUrl,async:true,timeout:10,{
+			signRequest();
+			handler({
+				if(httpResponse.statusLine.statusCode!=200){
+					Logger.getLogger("GroovyCompilerSupport").warning("response for groovy API ${httpResponse.statusLine}");
+					//throw new RuntimeException("Error issuing API call to ${compilerUrl} ${httpResponse.statusLine}: ${EntityUtils.toString(httpResponse.entity)}");
+				}
+			})
+		})
+		CompilerStateKeeper.compilingHosts.add(member);
+	}
+}
+
+@Function(info="Get the runtime performance statistics for a list of cluster members")
+public Map<ClusterMember,List<Map>> getStatistics(List<ClusterMember> members, boolean refresh, boolean reset){
+	if(reset){
+		members.each{ member ->
+			def statsUrl = "${load('/groovity/servlet/admin/lib/compilerSupport').getGroovitySystemUrl(member)}/api/stats?resetStats=true";
+			http(method:'POST',url:statsUrl,timeout:5,{signRequest()});
+			cacheRemove(key:member,name:"GroovityStatisticsCache")
+		}
+	}
+	if(refresh){
+		members.each{ member ->
+			cacheRemove(key:member,name:"GroovityStatisticsCache")
+		}
+	}
+	cache(keys:members,name:"GroovityStatisticsCache",refresh:"10",ttl:"300",{
+		//step 1, set up parallel async loading
+		map.each{ entry ->
+			def eventsUrl = "${load('/groovity/servlet/admin/lib/compilerSupport').getGroovitySystemUrl(entry.key)}/api/stats";
+			entry.value = http(url:eventsUrl,async:true,timeout:5,{
+				load('/groovity/servlet/admin/lib/compilerSupport').signRequest();
+				handler({
+					if(httpResponse.statusLine.statusCode!=200){
+						Logger.getLogger("GroovyCompilerSupport").warning("response for groovy API ${httpResponse.statusLine}");
+						return null;
+						//throw new RuntimeException("Error issuing API call to ${eventsUrl} ${httpResponse.statusLine}: ${EntityUtils.toString(httpResponse.entity)}");
+					}
+					parse(value:httpResponse)
+				})
+			})
+		}
+		//Step 2, wait for all results
+		map.each{ entry ->
+			try{
+				entry.value = entry.value.get();
+			}
+			catch(Exception e){
+				entry.value = null;
+			}
+		}
+	});
+}
+
+@Function(info="Get the compiler events for a list of cluster members")
+public Map<ClusterMember,Map> getDocs(List<ClusterMember> members){
+	cache(keys:members,name:"GroovityDocsCache",refresh:"10",ttl:"300",{
+		//step 1, set up parallel async loading
+		map.each{ entry ->
+			def eventsUrl = "${load('/groovity/servlet/admin/lib/compilerSupport').getGroovitySystemUrl(entry.key)}/api/docs";
+			entry.value = http(url:eventsUrl,async:true,timeout:5,{
+				load('/groovity/servlet/admin/lib/compilerSupport').signRequest();
+				handler({
+					if(httpResponse.statusLine.statusCode!=200){
+						Logger.getLogger("GroovyCompilerSupport").warning("response for groovy API ${httpResponse.statusLine}");
+						return null;
+						//throw new RuntimeException("Error issuing API call to ${eventsUrl} ${httpResponse.statusLine}: ${EntityUtils.toString(httpResponse.entity)}");
+					}
+					parse(value:httpResponse)
+				})
+			})
+		}
+		//Step 2, wait for all results
+		map.each{ entry ->
+			try{
+				entry.value = entry.value.get();
+			}
+			catch(Exception e){
+				entry.value = null;
+			}
+		}
+	});
+}
+
+@Function(info="Get the thread state for a list of cluster members")
+public Map<ClusterMember,Map> getThreads(List<ClusterMember> members){
+	cache(keys:members,name:"GroovityThreadsCache",refresh:"10",ttl:"60",{
+		//step 1, set up parallel async loading
+		map.each{ entry ->
+			def eventsUrl = "${load('/groovity/servlet/admin/lib/compilerSupport').getGroovitySystemUrl(entry.key)}/api/threads";
+			entry.value = http(url:eventsUrl,async:true,timeout:5,{
+				load('/groovity/servlet/admin/lib/compilerSupport').signRequest();
+				handler({
+					if(httpResponse.statusLine.statusCode!=200){
+						Logger.getLogger("GroovyCompilerSupport").warning("response for groovy API ${httpResponse.statusLine}");
+						return null;
+						//throw new RuntimeException("Error issuing API call to ${eventsUrl} ${httpResponse.statusLine}: ${EntityUtils.toString(httpResponse.entity)}");
+					}
+					parse(value:httpResponse)
+				})
+			})
+		}
+	});
+}
+
+@Function(info="Get the thread state for a list of cluster members")
+public Map<ClusterMember,Map> getSockets(List<ClusterMember> members, boolean refresh){
+	if(refresh){
+		members.each{ member ->
+			cacheRemove(key:member,name:"GroovitySocketsCache")
+		}
+	}
+	cache(keys:members,name:"GroovitySocketsCache",refresh:"10",ttl:"60",{
+		//step 1, set up parallel async loading
+		map.each{ entry ->
+			def eventsUrl = "${load('/groovity/servlet/admin/lib/compilerSupport').getGroovitySystemUrl(entry.key)}/api/sockets";
+			entry.value = http(url:eventsUrl,async:true,timeout:5,{
+				load('/groovity/servlet/admin/lib/compilerSupport').signRequest();
+				handler({
+					if(httpResponse.statusLine.statusCode!=200){
+						Logger.getLogger("GroovyCompilerSupport").warning("response for groovy API ${httpResponse.statusLine}");
+						return null;
+						//throw new RuntimeException("Error issuing API call to ${eventsUrl} ${httpResponse.statusLine}: ${EntityUtils.toString(httpResponse.entity)}");
+					}
+					parse(value:httpResponse)
+				})
+			})
+		}
+	});
+}
+
+@Function(info="check whether any hosts are known to be busy compiling")
+public boolean isCompiling(){
+	return !CompilerStateKeeper.compilingHosts.isEmpty();
+}
+
+protected String getGroovitySystemUrl(ClusterMember member){
+	if(member.address == clusterClient.localHostResolver.localHost){
+		//substitute loopback for local
+		return "http://127.0.0.1:${member.port}/groovity/servlet/admin"
+	}
+	else{
+		return "http://${member.address.hostAddress}:${member.port}/groovity/servlet/admin"
+	}
+}
+
+protected void signRequest(){
+	def secret = conf['groovity.cluster.secret'] ?: conf['groovity.cluster.disableAuth'] ? 'groovityInsecureSignature' : null;
+	if(!secret){
+		throw new RuntimeException("No cluster secret to sign request, configure system with -Dgroovity.cluster.secret={someBigLongRandomSecret}");
+	}
+	signature(
+		keyId:(conf['groovity.cluster.keyId']),
+		key:new SecretKeySpec(secret.getBytes("UTF-8"), "HmacSHA256"),
+		headers:['host', '(request-target)','date']
+	)
+}
+
+class CompilerStateKeeper{
+	public static Set<ClusterMember> compilingHosts = Collections.newSetFromMap(new ConcurrentHashMap<ClusterMember,Object>());
+}

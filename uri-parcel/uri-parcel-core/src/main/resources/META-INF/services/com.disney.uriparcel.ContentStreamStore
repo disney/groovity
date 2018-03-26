@@ -1,0 +1,4 @@
+com.disney.uriparcel.stream.ClasspathStreamStore
+com.disney.uriparcel.stream.FileStreamStore
+com.disney.uriparcel.stream.URLStreamStore
+com.disney.uriparcel.stream.MemoryStreamStore

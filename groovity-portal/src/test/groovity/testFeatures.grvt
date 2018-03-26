@@ -1,0 +1,252 @@
+/*******************************************************************************
+ * © 2018 Disney | ABC Television Group
+ *
+ * Licensed under the Apache License, Version 2.0 (the "Apache License")
+ * with the following modification; you may not use this file except in
+ * compliance with the Apache License and the following modification to it:
+ * Section 6. Trademarks. is deleted and replaced with:
+ *
+ * 6. Trademarks. This License does not grant permission to use the trade
+ *     names, trademarks, service marks, or product names of the Licensor
+ *     and its affiliates, except as required to comply with Section 4(c) of
+ *     the License and to reproduce the content of the NOTICE file.
+ *
+ * You may obtain a copy of the Apache License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the Apache License with the above modification is
+ * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the Apache License for the specific
+ * language governing permissions and limitations under the Apache License.
+ *******************************************************************************/
+@Field static conf=[
+	PORTAL_AUTH_REALM:'Portal',
+	'groovity.port':int.class
+]
+
+import java.security.MessageDigest;
+import org.apache.http.util.EntityUtils;
+import javax.xml.bind.DatatypeConverter;
+import org.apache.http.client.protocol.HttpClientContext;
+import org.apache.http.impl.client.BasicAuthCache;
+
+def host = "http://localhost:${conf['groovity.port']}"
+
+load '/data/factory'
+
+/**
+ * This is the launching point for complete lifecycle/integration testing; various phases may be broken out into other scripts.
+ */
+
+//Step 1: load the home page
+http(url:"${host}/",{
+	 handler({
+		 assert EntityUtils.toString(httpResponse.entity).contains('Portal')
+	 })
+})
+ 
+MessageDigest md = MessageDigest.getInstance("MD5");
+
+//Step 2: create bootstrap account
+formData = [
+	userName:'admin',
+	fullName:'Admin User',
+	nickName:'addie',
+	digest:DatatypeConverter.printHexBinary(md.digest("admin:${conf.PORTAL_AUTH_REALM}:mypass".bytes))
+] 
+http(url:"${host}/",method:"POST",data:formData,{
+	handler({
+		assert EntityUtils.toString(httpResponse.entity).contains('please login')
+	})
+})
+//Step 3: login
+http(url:"${host}/portal/session/login",{
+	handler({
+		assert httpResponse.statusLine.statusCode == 401
+	})
+})
+
+http(url:"${host}/portal/session/login",{
+	credentials(user:'admin',pass:'nope')
+	handler({
+		assert httpResponse.statusLine.statusCode == 401
+	})
+})
+
+HttpClientContext adminContext = HttpClientContext.create();
+
+http(url:"${host}/portal/session/login",context:adminContext,{
+	credentials(user:'admin',pass:'mypass')
+	handler({
+		assert httpResponse.statusLine.statusCode == 200
+	})
+})
+http(url:"${host}/",context:adminContext,{
+	handler({
+		assert EntityUtils.toString(httpResponse.entity).contains('Hello addie')
+	})
+})
+http(url:"${host}/",{
+	handler({
+		assert !EntityUtils.toString(httpResponse.entity).contains('Hello addie')
+	})
+})
+
+//validate websocket enforcement
+
+def eventSocketUrl = "${host.replace('http','ws')}/ws/events"
+def wsError1
+try{
+	def wsClient = ws(url:eventSocketUrl, error:{})
+}
+catch(IOException e){
+	wsError1 = e
+}
+
+assert wsError1?.cause?.message == '401 Unauthorized'
+
+def sessionCookie = adminContext.cookieStore.cookies.first()
+def wsError2
+try{
+	def wsClient = ws(url:eventSocketUrl, error:{}){
+		header(name:'Cookie',value:"${sessionCookie.name}=${sessionCookie.value}")
+	}
+}
+catch(IOException e){
+	wsError2 = e
+}
+
+assert wsError2?.cause?.message == '403 Origin not allowed'
+
+def wsClient = ws(url:eventSocketUrl){
+	header(name:'Origin',value:host)
+	header(name:'Cookie',value:"${sessionCookie.name}=${sessionCookie.value}")
+}
+
+wsClient.close()
+
+//validate admin functions
+
+def adminUser = factory('person','userName=admin')?.first()
+
+assert adminUser
+
+factory.invalidate('membership', "personId=${adminUser.id}")
+
+http(url:"${host}/admin/groups?name=TempGroup1",method:'POST',context:adminContext,{
+	handler({
+		assert httpResponse.statusLine.statusCode == 200
+	})
+})
+
+def tempGroup = factory('group','name=TempGroup1')?.first()
+
+assert tempGroup
+
+String memberCheck = "crewId=${tempGroup.id}&personId=${adminUser.id}"
+
+http(url:"${host}/admin/groups?addMember=${adminUser.id}&group_id=${tempGroup.id}",method:'POST',context:adminContext,{
+	handler({
+		assert httpResponse.statusLine.statusCode == 200
+	})
+})
+factory.invalidate('membership',memberCheck)
+assert factory('membership',memberCheck)
+
+String leaderCheck = "crewId=${tempGroup.id}&personId=${adminUser.id}"
+
+http(url:"${host}/admin/groups?addLeader=${adminUser.id}&group_id=${tempGroup.id}",method:'POST',context:adminContext,{
+	handler({
+		assert httpResponse.statusLine.statusCode == 200
+	})
+})
+factory.invalidate('leadership',leaderCheck)
+assert factory('leadership',leaderCheck)
+
+http(url:"${host}/admin/groups?deleteGroup=true&group_id=${tempGroup.id}",context:adminContext,{
+	handler({
+		assert httpResponse.statusLine.statusCode == 200
+	})
+})
+factory.invalidate('membership',memberCheck)
+assert !factory('membership',memberCheck)
+factory.invalidate('leadership',leaderCheck)
+assert !factory('leadership',leaderCheck)
+
+//Step 4: create regular user account
+http(url:"${host}/admin/people",
+	method:"POST",
+	context:adminContext,
+	data: [
+		userName:'peeps',
+		fullName:'Regular User',
+		nickName:'peepers',
+		digest:DatatypeConverter.printHexBinary(md.digest("peeps:${conf.PORTAL_AUTH_REALM}:jeez".bytes))
+	] ,
+	{
+		handler({
+			assert  httpResponse.statusLine.statusCode == 200
+			assert EntityUtils.toString(httpResponse.entity).contains('Person updated')
+		})
+	}
+)
+
+
+def regularUser = factory('person','userName=peeps')?.first()
+assert regularUser
+
+http(url:"${host}/admin/people?people_id=${regularUser.id}",context:adminContext){
+	handler({
+			assert httpResponse.statusLine.statusCode == 200
+			assert EntityUtils.toString(httpResponse.entity).contains('Regular User')
+		})
+}
+
+
+//Step 5: validate login enforcement
+HttpClientContext userContext = HttpClientContext.create();
+
+http(url:"${host}/admin/people",context:userContext,{
+		handler({
+			assert  httpResponse.statusLine.statusCode == 403
+		})
+	}
+)
+
+//Step 6: login regular user
+
+http(url:"${host}/portal/session/login",context:userContext,{
+	credentials(user:'peeps',pass:'jeez')
+	handler({
+		assert httpResponse.statusLine.statusCode == 200
+	})
+})
+
+http(url:"${host}/admin/people",context:userContext,{
+	handler({
+		assert  httpResponse.statusLine.statusCode == 200
+	})
+}
+)
+
+
+//Step 7 validate role enforcement
+
+http(url:"${host}/admin/people",
+	method:"POST",
+	context:userContext,
+	data: [
+		userName:'nobody',
+		fullName:'Nobody User',
+		nickName:'never',
+		digest:DatatypeConverter.printHexBinary(md.digest("nobody:${conf.PORTAL_AUTH_REALM}:never".bytes))
+	] ,
+	{
+		handler({
+			assert  httpResponse.statusLine.statusCode == 200
+			assert !EntityUtils.toString(httpResponse.entity).contains('Person updated')
+		})
+	}
+)

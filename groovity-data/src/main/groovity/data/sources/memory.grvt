@@ -1,0 +1,107 @@
+/*******************************************************************************
+ * © 2018 Disney | ABC Television Group
+ *
+ * Licensed under the Apache License, Version 2.0 (the "Apache License")
+ * with the following modification; you may not use this file except in
+ * compliance with the Apache License and the following modification to it:
+ * Section 6. Trademarks. is deleted and replaced with:
+ *
+ * 6. Trademarks. This License does not grant permission to use the trade
+ *     names, trademarks, service marks, or product names of the Licensor
+ *     and its affiliates, except as required to comply with Section 4(c) of
+ *     the License and to reproduce the content of the NOTICE file.
+ *
+ * You may obtain a copy of the Apache License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the Apache License with the above modification is
+ * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the Apache License for the specific
+ * language governing permissions and limitations under the Apache License.
+ *******************************************************************************/
+import com.disney.groovity.data.StorePayload
+import com.disney.groovity.data.Attacher
+
+static ConcurrentHashMap<String, MemoryData> dataObjects = new ConcurrentHashMap<>()
+
+@CompileStatic
+@Function(info="Look up one or more objects from the memory data layer")
+public void call(Map<String,Object> map, Map conf){
+	map.each{ entry ->
+		MemoryData data = dataObjects.get(entry.key)
+		if(data != null){
+			Attacher attacher = new Attacher()
+			attacher.attachments = data.dataAttachments;
+			attacher.visit(data.dataObject)
+			entry.value = attacher.getCollected()
+		}
+		else{
+			log(info:"No data found for ${entry.key} ; ${data}")
+		}
+	}
+}
+
+@CompileStatic
+@Function(info="Add one or more objects to the memory data layer")
+public String store(String id, Object data){
+	StorePayload sp = new StorePayload()
+	sp.data = data
+	store(id,sp,null)
+}
+
+@CompileStatic
+@Function(info="Add one or more objects to the memory data layer")
+public String store(String id, StorePayload payload, Map conf){
+	if(!id){
+		id = UUID.randomUUID().toString();
+		while(dataObjects.containsKey(id)){
+			id = UUID.randomUUID().toString();
+		}
+	}
+	List<Attachment> atts = payload.attachments
+	MemoryData md = new MemoryData()
+	md.dataObject = payload.data
+	md.updateTime = System.currentTimeMillis()
+	if(atts){
+		//copy attachments into memory
+		List<Attachment> attList = (List<Attachment>) atts.collect{ new Attachment.Bytes(it) }
+		md.dataAttachments = attList
+	}
+	dataObjects.put(id,md)
+	id
+}
+
+@CompileStatic
+@Function(info="Remove an object from the memory data layer")
+public void delete(String id, Map conf){
+	dataObjects.remove(id)
+}
+
+@CompileStatic
+@Function(info="retrieve IDs of file updates since the given date")
+public long dateRange(String key, long lowerBound, long upperBound, Map typeConf, Closure keyCallback){
+	if(key!=null){
+		MemoryData md = dataObjects.get(key)
+		if(md!=null && lowerBound < md.updateTime && md.updateTime < upperBound){
+			keyCallback(key)
+			return md.updateTime
+		}
+		return lowerBound
+	}
+	def found = dataObjects.findAll{ k, v -> lowerBound < v.updateTime && v.updateTime < upperBound }
+	found.each{ k, v ->
+		keyCallback(k)
+		if(v.updateTime > lowerBound){
+			lowerBound = v.updateTime
+		}
+	}
+	lowerBound
+}
+
+class MemoryData{
+	Object dataObject
+	List<Attachment> dataAttachments
+	long updateTime
+}

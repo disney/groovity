@@ -1,0 +1,39 @@
+class Model1 implements Model{
+	String name
+	Model1 nested
+}
+
+def m1 = new Model1().putAll([name:'foo',nested:[name:'bar',nested:[name:'xyz']]])
+//System.out.println(m1.toJsonString())
+assert m1.nested.getClass() == Model1.class
+assert m1.nested.nested.getClass() ==  Model1.class
+
+class Model2 implements Model{
+	String name
+	Model2[] nested
+}
+
+def m2 = new Model2().putAll([name:'foo',nested:[[name:'bar',nested:[[name:'abc']]],[name:'xyz']]])
+//System.out.println(m2.toJsonString())
+assert m2.nested[0].getClass() == Model2.class
+assert m2.nested[0].nested[0].getClass() == Model2.class
+
+class Model3 implements Model{
+	String name
+	List<Model3> nested
+}
+
+def m3 = new Model3().putAll([name:'foo',nested:[[name:'bar',nested:[[name:'abc']]],[name:'xyz']]])
+//System.out.println(m3.toJsonString())
+assert m3.nested[0].getClass() == Model3.class
+assert m3.nested[0].nested[0].getClass() == Model3.class
+
+class Model4 implements Model{
+	String name
+	Map<String, Model4> nested
+}
+
+def m4 = new Model4().putAll([name:'foo',nested:[bar:[name:'xyz',nested:[abc:[name:'123']]]]])
+//System.out.println(m4.toJsonString())
+assert m4.nested.entrySet().first().value.getClass() == Model4.class
+assert m4.nested.entrySet().first().value.nested.entrySet().first().value.getClass() == Model4.class

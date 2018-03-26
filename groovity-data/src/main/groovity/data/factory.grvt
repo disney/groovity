@@ -1,0 +1,454 @@
+/*******************************************************************************
+ * © 2018 Disney | ABC Television Group
+ *
+ * Licensed under the Apache License, Version 2.0 (the "Apache License")
+ * with the following modification; you may not use this file except in
+ * compliance with the Apache License and the following modification to it:
+ * Section 6. Trademarks. is deleted and replaced with:
+ *
+ * 6. Trademarks. This License does not grant permission to use the trade
+ *     names, trademarks, service marks, or product names of the Licensor
+ *     and its affiliates, except as required to comply with Section 4(c) of
+ *     the License and to reproduce the content of the NOTICE file.
+ *
+ * You may obtain a copy of the Apache License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the Apache License with the above modification is
+ * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the Apache License for the specific
+ * language governing permissions and limitations under the Apache License.
+ *******************************************************************************/
+
+import com.disney.groovity.compile.GroovityClassLoader
+import com.disney.groovity.data.DataTypeRegistry
+import com.disney.groovity.util.ScriptHelper
+
+static DataTypeRegistry registry
+static ScheduledExecutorService watchService
+
+static init(){
+	registry = new DataTypeRegistry()
+	def groovity = getClassLoader().groovity
+	groovity.addListener(registry)
+	groovity.visit(registry)
+	watchService = Executors.newScheduledThreadPool(Runtime.runtime.availableProcessors()*4)
+}
+
+static destroy(){
+	watchService.shutdown()
+}
+
+@Function(info="Test whether a named type existing in the /data/types/ directory")
+public boolean isKnownType(String type){
+	registry.isKnownType(type)
+}
+
+@InheritConstructors
+class DataModelList extends ArrayList implements DataModel{
+
+}
+
+class DataModelImpl implements DataModel{
+	def value
+	
+	public DataModelImpl(){
+	}
+	public DataModelImpl(Object value){
+		this.value=value
+	}
+	@CompileStatic @SkipStatistics
+	public boolean equals(Object o){
+		if(o instanceof DataModelImpl){
+			o = ((DataModelImpl)o).value
+		}
+		value == o
+	}
+	@CompileStatic @SkipStatistics
+	public int hashCode(){
+		value?.hashCode()
+	}
+	@CompileStatic @SkipStatistics
+	def call(){
+		value
+	}
+}
+
+@CompileStatic
+@Function(info="call with a object type to construct a new empty object")
+DataModel call(String type){
+	final String typeScript = '/data/types/'.concat(type)
+	Script typeFactory = load(typeScript);
+	if(typeFactory == null){
+		return null;
+	}
+	DataModel referent = (DataModel) typeFactory.run()
+	if(referent.getPointer() ==null){
+		referent.setPointer(new Pointer(type,null))
+	}
+	referent
+}
+
+@CompileStatic
+@Function(info="call with a object type and a single ID to load")
+DataModel call(String type, String id){
+	String[] args = new String[1]
+	args[0] = id
+	def results = _doLookupIds(type, args)
+	if(results.isEmpty()){
+		return null
+	}
+	return results.get(0)
+}
+
+@CompileStatic
+@Function(info="call with a object type and a collection of IDs to load")
+List<DataModel> call(String type, Collection<String> ids){
+	_doLookupIds(type,ids.toArray(new String[ids.size()]))
+}
+
+@CompileStatic
+@Function(info="call with a object type and one or more IDs to load")
+List<DataModel> call(String type, String... ids){
+	_doLookupIds(type, ids)
+}
+
+@CompileStatic @SkipStatistics
+private final List<DataModel> _doLookupIds(String type, String... ids){
+	final String typeScript = '/data/types/'.concat(type)
+	Script typeFactory = load(typeScript);
+	if(typeFactory == null){
+		return null;
+	}
+	Map typeConf = ((GroovityClassLoader)typeFactory.getClass().getClassLoader()).getConfiguration()
+	if(typeConf == null || !typeConf.containsKey('source')){
+		return null;
+	}
+	Map<String, DataModel> cacheResults = (Map<String, DataModel>) cache(
+		name : type,
+		keys : ids,
+		ttl : typeConf.get('ttl'),
+		refresh : typeConf.get('refresh')
+	){ map ->
+		Map<String, Object> loadMap = (Map<String, Object>) map;
+		String sourceScriptName = typeConf.get('source').toString()
+		if(!sourceScriptName.startsWith('/')){
+			sourceScriptName = '/data/sources/'.concat(sourceScriptName)
+		}
+		Script daoScript = load(sourceScriptName);
+		daoScript.invokeMethod('call', [loadMap,Collections.unmodifiableMap(typeConf)].toArray())
+		//log(info:"Factory got ${results} and will ${typeScript}")
+		loadMap.each{ entry ->
+			def obj = entry.value
+			if(obj != null){
+				entry.value = async{
+					if(obj instanceof Future){
+						obj = ((Future)obj).get();
+						if(obj == null){
+							return
+						}
+					}
+					Script targetScript = load(typeScript)
+					if(obj instanceof Collection){
+						DataModel domainObj = (DataModel) targetScript.run()
+						List dataList;
+						if(domainObj instanceof List){
+							dataList = (List)domainObj
+							((Collection)obj).each{ data -> 
+								dataList.add(data)
+							}
+						}
+						else{
+							DataModel element = domainObj;
+							dataList = domainObj = new DataModelList()
+							((Collection)obj).each{ data -> 
+								if(data instanceof Map){
+									element.pointer = new Pointer(type,null)
+									element.ingest((Map<String,Object>) data)
+									dataList.add(element)
+									element = (DataModel) targetScript.run()
+								}
+								else{
+									dataList.add(data)
+								}	
+							}
+						}
+						domainObj.pointer = new Pointer(type,entry.key)
+						return domainObj
+					}
+					if(obj instanceof Map){
+						DataModel domainObj = (DataModel) targetScript.run()
+						domainObj.pointer = new Pointer(type,entry.key)
+						domainObj.ingest((Map<String,Object>) obj)
+						return domainObj
+					}
+					DataModel domainObj = new DataModelImpl(obj)
+					domainObj.pointer = new Pointer(type,entry.key)
+					domainObj
+				}
+				//log(info:"Factory resolved ${entry.value} from ${obj} for ${entry.key}")
+			}
+		}
+	}
+	Collection<DataModel> results = cacheResults.values()
+	int numResults = results.size()
+	if(numResults == 0){
+		return Collections.emptyList()
+	}
+	//automatically clone cache values that support it to provide isolation
+	List<DataModel> resultList = new ArrayList<>(numResults)
+	for(DataModel result in results){
+		if(result instanceof DataModelImpl){
+			def obj = ((DataModelImpl)result).value
+			if(obj instanceof Pointer){
+				result = _doLookupPointer((Pointer)obj)
+			}
+		}
+		boolean copy = true
+		if(result instanceof List){
+			List rList = (List) result;
+			int rsize = rList.size()
+			if((rsize > 0) && (rList.get(0) instanceof Pointer)){
+				List fList = (List) rList.getClass().newInstance()
+				fList.addAll(_doLookupPointers(rList.toArray(new Pointer[rsize])));
+				((DataModel)fList).setPointer((Pointer)result.pointer.copy())
+				result = (DataModel) fList
+				copy = false
+			}
+		}
+		if(copy && !(result instanceof Shared)){
+			result = (DataModel) result.copy()
+		}
+		resultList.add(result)
+	}
+	resultList
+}
+
+@CompileStatic
+@Function(info="call with a single Pointer to be dereferenced")
+DataModel call(Pointer pointer){
+	_doLookupPointer(pointer)
+}
+
+@CompileStatic 
+@SkipStatistics
+private final DataModel _doLookupPointer(Pointer pointer){
+	String[] args = new String[1]
+	args[0] = pointer.id
+	def results = _doLookupIds(pointer.type, args)
+	if(results.isEmpty()){
+		return null
+	}
+	results.get(0)
+}
+
+@CompileStatic
+@Function(info="call with a collection of Pointers to be dereferenced")
+List<DataModel> call(final Pointer... references){
+	_doLookupPointers(references)
+}
+
+@CompileStatic
+@SkipStatistics
+private final List<DataModel> _doLookupPointers(final Pointer... references){
+	final int reflen = references.length
+	final Map<String, List<String>> refsByType = new HashMap<>()
+	for(int i=0; i< reflen; i++){
+		Pointer ref = references[i]
+		List<String> ids = refsByType.get(ref.type)
+		if(ids==null){
+			ids = new ArrayList<>()
+			refsByType.put(ref.type,ids)
+		}
+		ids.add(ref.id)
+	}
+	if(refsByType.size()==1){
+		//single type, simple call
+		Map.Entry<String,List<String>> entry = refsByType.entrySet().first()
+		return _doLookupIds(entry.key, entry.value.toArray(new String[entry.value.size()]))
+	}
+	final Map<Pointer, DataModel> resolved = new HashMap<>(reflen*2)
+	for(Map.Entry<String, List<String>> entry: refsByType){
+		final String type = entry.key
+		final List<String> ids = entry.value
+		for(DataModel d: _doLookupIds(type, ids.toArray(new String[ids.size()]))){
+			resolved.put(d.pointer,d)
+		}
+	}
+	//now put back in order
+	final ArrayList<DataModel> results = new ArrayList<>(reflen)
+	for(int i=0; i< reflen; i++){
+		Pointer ref = references[i]
+		DataModel d = resolved.get(ref)
+		if(d != null){
+			results.add(d)
+		}
+	}
+	results
+}
+
+@CompileStatic
+@Function(info="call with a collection of Pointers to be dereferenced")
+List<DataModel> call(Collection<Pointer> references){
+	_doLookupPointers(references.toArray(new Pointer[references.size()]))
+}
+
+@CompileStatic
+@Function(info="call with a map of object id/type entries to load [key1:type,key2:type]")
+List<DataModel> call(Map<String, String> keyTypes){
+	_doLookupPointers(keyTypes.collect{ e->
+		new Pointer(e.value, e.key)
+	}.toArray(new Pointer[keyTypes.size()]))
+}
+
+@CompileStatic
+@Function(info="remove a set of IDs from cache for a given type")
+public void invalidate(String type, Collection<String> ids){
+	invalidate(type,ids.toArray(new String[ids.size()]))
+}
+
+@CompileStatic
+@Function(info="remove IDs from cache for a given type")
+public void invalidate(String type, String... ids){
+	for(int i=0; i< ids.length; i++){
+		String id = ids[i];
+		cacheRemove(name:type,key:id)
+	}
+}
+
+@CompileStatic
+@Function(info="remove references from cache")
+public void invalidate(Pointer... references){
+	for(int i=0; i < references.length; i++){
+		Pointer ref = references[i];
+		cacheRemove(name:ref.type,key:ref.id)
+	}
+}
+
+@CompileStatic
+@Function(info="refresh a set of IDs in cache for a given type")
+public void refresh(String type, Collection<String> ids){
+	cacheRefresh(name:type,keys:ids)
+}
+
+@CompileStatic
+@Function(info="refresh IDs in cache for a given type")
+public void refresh(String type, String... ids){
+	cacheRefresh(name:type,keys:ids)
+}
+
+@CompileStatic
+@Function(info="refresh references in cache")
+public void refresh(Pointer... references){
+	for(int i=0; i < references.length; i++){
+		Pointer ref = references[i];
+		cacheRefresh(name:ref.type,key:ref.id)
+	}
+}
+
+@CompileStatic
+@Function(info="place a data object in the cache")
+public void cache(DataModel obj){
+	Pointer ptr = obj.getPointer()
+	assert ptr
+	String type = ptr.getType()
+	assert type
+	String id = ptr.getId()
+	assert id
+	obj = (DataModel) obj.copy()
+	obj.setPointer(new Pointer(ptr.type, ptr.id))
+	cachePut(name:type, key:id, value:obj)
+}
+
+@CompileStatic
+@Function(info="create a watcher, which will call a closure with updated objects")
+public ScheduledFuture watch(String type, Closure receiver){
+	watch(type, null, 1000, TimeUnit.MILLISECONDS, receiver)
+}
+
+@CompileStatic
+@Function(info="create a watcher, which will call a closure with updated objects")
+public ScheduledFuture watch(String type, String id, Closure receiver){
+	watch(type, id, 1000, TimeUnit.MILLISECONDS, receiver)
+}
+
+@CompileStatic
+@Function(info="create a watcher, which will call a closure with updated objects with a given interval in milliseconds")
+public ScheduledFuture watch(String type, long interval, Closure receiver){
+	watch(type, null, interval, TimeUnit.MILLISECONDS, receiver)
+}
+
+@CompileStatic
+@Function(info="create a watcher, which will call a closure with updated objects with a given interval in milliseconds")
+public ScheduledFuture watch(String type, String id, long interval, Closure receiver){
+	watch(type, id, interval, TimeUnit.MILLISECONDS, receiver)
+}
+
+@CompileStatic
+@Function(info="create a watcher, which will call a closure with updated objects with an interval and time unit")
+public ScheduledFuture watch(String type, String id, long interval, TimeUnit unit, Closure receiver){
+	def pollingCursor = System.currentTimeMillis()-1
+	watchService.scheduleWithFixedDelay({
+		Binding watchBinding = new Binding();
+		ScriptHelper.THREAD_BINDING.set(watchBinding);
+		try{
+			pollingCursor = dateRange(type, id, pollingCursor, System.currentTimeMillis(), receiver)
+		}
+		catch(Exception e){
+			log(warn:"Error in watcher",thrown:e)
+		}
+		finally{
+			ScriptHelper.THREAD_BINDING.remove();
+		}
+	},interval,interval,unit)
+}
+
+@CompileStatic
+@Function(info="invoke a receiver asynchronously with pointers to any data objects that satisfy the type, id, and data boundaries.  Used to support watches.")
+public long dateRange(String type, String id, long lowerBound, long upperBound, Closure receiver){
+	if(upperBound <= lowerBound){
+		//got ahead of ourselves, skip this iteration
+		return lowerBound
+	}
+	final String typeScript = '/data/types/'.concat(type)
+	Script typeFactory = null
+	try{
+		typeFactory = load(typeScript);
+	}
+	catch(Exception e){
+		log(warn:"Error loading script ${typeScript} in dateRange", thrown:e)
+		return
+	}
+	Map typeConf = ((GroovityClassLoader)typeFactory.getClass().getClassLoader()).getConfiguration()
+	if(!typeConf || !typeConf.containsKey('source')){
+		return
+	}
+	String sourceScriptName = typeConf.get('source').toString()
+	if(!sourceScriptName.startsWith('/')){
+		sourceScriptName = '/data/sources/'.concat(sourceScriptName)
+	}
+	Script daoScript = load(sourceScriptName);
+	(long) daoScript.invokeMethod('dateRange', [
+		id,
+		lowerBound,
+		upperBound,
+		Collections.unmodifiableMap(typeConf),
+		{ Object oid ->
+			Pointer pointer;
+			if(oid instanceof Pointer){
+				pointer = (Pointer)oid;
+			}
+			else{
+				pointer = new Pointer(type,oid.toString())
+			}
+			try{
+				receiver(pointer)
+			}
+			catch(Exception e){
+				log(error:"Error handling dateRange result",thrown:e)
+			}
+		}
+	].toArray())
+}

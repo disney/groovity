@@ -1,0 +1,176 @@
+/*******************************************************************************
+ * © 2018 Disney | ABC Television Group
+ *
+ * Licensed under the Apache License, Version 2.0 (the "Apache License")
+ * with the following modification; you may not use this file except in
+ * compliance with the Apache License and the following modification to it:
+ * Section 6. Trademarks. is deleted and replaced with:
+ *
+ * 6. Trademarks. This License does not grant permission to use the trade
+ *     names, trademarks, service marks, or product names of the Licensor
+ *     and its affiliates, except as required to comply with Section 4(c) of
+ *     the License and to reproduce the content of the NOTICE file.
+ *
+ * You may obtain a copy of the Apache License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the Apache License with the above modification is
+ * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the Apache License for the specific
+ * language governing permissions and limitations under the Apache License.
+ *******************************************************************************/
+
+import com.disney.groovity.data.StorePayload
+import com.disney.groovity.data.Attacher
+import groovy.io.FileType
+
+@CompileStatic
+@Function(info="Look up one or more objects from the file data layer")
+public void call(Map<String,Object> map, Map conf){
+	map.each{ entry ->
+		File file = getFile(entry.key, conf)
+		if(file.exists()){
+			entry.value  = parse(value:file)
+			def attFolder = getDir("${entry.key}_",conf)
+			if(attFolder.isDirectory()){
+				def atts = []
+				attFolder.eachFile(FileType.FILES){ k -> atts.add(new Attachment.File(k)) }
+				if(atts){
+					Attacher attacher = new Attacher()
+					attacher.attachments = atts;
+					attacher.visit(entry.value)
+					entry.value = attacher.getCollected()
+				}
+			}
+		}
+	}
+}
+
+@CompileStatic
+@Function(info="Add one or more objects to the file data layer")
+public String store(String id, StorePayload payload, Map conf){
+	if(!id){
+		id = UUID.randomUUID().toString();
+		while(getFile(id, conf).exists()){
+			id = UUID.randomUUID().toString();
+		}
+	}
+	List<Attachment> atts = payload.attachments
+	def data = payload.data
+	File file = getFile(id, conf)
+	if(!file.parentFile.exists()){
+		file.parentFile.mkdirs()
+	}
+	OutputStreamWriter osm = new OutputStreamWriter(new FileOutputStream(file))
+	try{
+		write(value:data, to:osm)
+	}
+	finally{
+		osm.close()
+	}
+	File atDir = getDir("${id}_",conf)
+	if(atDir.isDirectory()){
+		File[] oldAttachments = atDir.listFiles()
+		if(oldAttachments){
+			oldAttachments.each{ ((File)it).delete() }
+		}
+		if(!atts){
+			atDir.delete()
+		}
+	}
+	else if(atts){
+		atDir.mkdirs()
+	}
+	atts.each{
+		File atFile = new File(atDir, it.name)
+		atFile << it.inputStream
+	}
+	id
+}
+
+@CompileStatic
+@Function(info="Remove an object from the file data layer")
+public void delete(String id, Map conf){
+	File file = getFile(id, conf)
+	file.delete()
+	File atDir = getDir("${id}_",conf)
+	if(atDir.isDirectory()){
+		File[] oldAttachments = atDir.listFiles()
+		if(oldAttachments){
+			oldAttachments.each{ ((File)it).delete() }
+		}
+		atDir.delete()
+	}
+}
+
+@CompileStatic @SkipStatistics
+private static File getFile(String key, Map conf){
+	if(conf.containsKey('file.extension')){
+		key = key+"."+conf.get('file.extension')
+	}
+	if(conf.containsKey('file.basedir')){
+		return new File(conf.get('file.basedir').toString(),key)
+	}
+	return new File(key)
+}
+
+@CompileStatic @SkipStatistics
+private static File getDir(String key, Map conf){
+	if(conf.containsKey('file.basedir')){
+		return new File(conf.get('file.basedir').toString(),key)
+	}
+	return new File(key)
+}
+
+@CompileStatic
+@Function(info="retrieve IDs of file updates since the given date")
+public long dateRange(String key, long lowerBound, long upperBound, Map typeConf, Closure keyCallback){
+	if(!typeConf.containsKey('file.basedir')){
+		throw new RuntimeException('Data type must specify file.basedir to support watches')
+	}
+	String ext=""
+	if(typeConf.containsKey('file.extension')){
+		ext = "."+typeConf.get('file.extension')
+	}
+	File dir = new File(typeConf.get('file.basedir').toString())
+	File[] listing
+	if(key!=null){
+		File found = new File(dir,key.concat(ext))
+		if(found.exists()){
+			listing = [found]
+		}
+	}
+	else{
+		listing = dir.listFiles(new FileFilter(){
+			boolean accept(File f){
+				f.isFile() && f.name.endsWith(ext)
+			}
+		})
+	}
+	//filesystems only guarantee one-second granularity
+	lowerBound = (long) (lowerBound/1000)*1000
+	upperBound = (long) (upperBound/1000)*1000
+	long rval = 0
+	if(listing){
+		for(int i=0;i<listing.length;i++){
+			File file = listing[i]
+			def lm = file.lastModified()
+			if( lm >= lowerBound && lm < upperBound){
+				if(lm > rval){
+					rval = lm
+				}
+				String name = file.getName()
+				if(ext){
+					name = name.substring(0,name.length()-ext.length())
+				}
+				keyCallback(name)
+			}
+		}
+	}
+	if(rval==0){
+		return lowerBound
+	}
+	(long) ((rval/1000)*1000) + 1000
+}

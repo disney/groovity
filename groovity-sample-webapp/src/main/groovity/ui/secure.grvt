@@ -1,0 +1,120 @@
+/*******************************************************************************
+ * © 2018 Disney | ABC Television Group
+ *
+ * Licensed under the Apache License, Version 2.0 (the "Apache License")
+ * with the following modification; you may not use this file except in
+ * compliance with the Apache License and the following modification to it:
+ * Section 6. Trademarks. is deleted and replaced with:
+ *
+ * 6. Trademarks. This License does not grant permission to use the trade
+ *     names, trademarks, service marks, or product names of the Licensor
+ *     and its affiliates, except as required to comply with Section 4(c) of
+ *     the License and to reproduce the content of the NOTICE file.
+ *
+ * You may obtain a copy of the Apache License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the Apache License with the above modification is
+ * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the Apache License for the specific
+ * language governing permissions and limitations under the Apache License.
+ *******************************************************************************/
+ 
+/**
+ * The secure application page for authenticated users; shows private notes and allows posting, editing and deleting notes
+ *
+ * @author Alex Vigdor
+ */
+
+static web=[
+	paths:['/secure'],
+	output:'text/html',
+	charset:'UTF-8',
+	auth:[policy:'/authPolicy'],
+	methods:['GET','POST']
+]
+static args=[
+	message:"",
+	worldRead:false,
+	myNote_id:'',
+	myNote_sortCol:'created',
+	myNote_sortOrder:'DESC',
+	deleteNote:false
+]
+load('/data/factory')
+
+@Field publicUI = load('/ui/public')
+@Field sql = load('/groovity/sql').sql('sampleDB')
+
+userObject = factory('user',"userName=${request.remoteUser}")?.first()
+def note = null;
+def userFeedback=null;
+if(myNote_id){
+	note = factory('note', myNote_id);
+	if(note){
+		if(!note.worldRead && note.userId!=userObject.id){
+			log(warn:"${note.userId} != ${userObject.id}")
+			response.sendError(403,"This is not your note");
+			return;
+		}
+	}
+}
+if(request.method=='POST'){
+	if(deleteNote){
+		note.delete()
+		userFeedback="Note deleted"
+	}
+	else{
+		load('/data/factory')('note').putAll( userId:userObject.id,message:message,worldRead:worldRead, id:myNote_id ).store()
+		userFeedback="Note updated"
+	}
+	note = null;
+} 
+cellLabel = { 
+	def theVal = it;
+	if(theVal instanceof Date){
+		theVal = theVal.format('yyyy/MM/dd hh:mm')
+	}
+    truncate(value: theVal, max: 140, suffix:'...')
+}
+<~
+<g:htmlShell>
+	<g:if test="${userFeedback}">
+	<div class="userFeedback">${userFeedback}</div>
+	</g:if>
+	<div class="area">
+	<form method="POST" action="/secure" id="noteForm" name="noteForm">
+		<span class="title"><g:if test="${note}">Edit note</g:if><g:else>Add note</g:else></span>
+		<div style="margin-left:8px">
+			<input type="checkbox" name="worldRead" value="true" ${note?.worldRead ? 'checked' : ''}>public?
+			<br/>
+			<textarea name="message" rows="20" cols="50">${note?.message}</textarea>
+			<br/>
+			<input type="hidden" name="myNote_id" value="${myNote_id}" />
+			<input type="hidden" name="deleteNote" value="false">
+			<input type="submit" />
+			<g:if test="${note}">
+				<input type="button" value="Close" onclick = "window.location.href='/secure'"/>
+				<input type="submit" value="Delete" onclick = "if(confirm('Are you sure you want to delete this note?')) { document.forms['noteForm'].deleteNote.value='true'; return true } else{ return false }"/>
+			</g:if>
+		</div>
+	</form>
+	</div>
+	<div class="area">
+	<g:sqlTable 
+		title="Your Notes" 
+		id="myNote" 
+		sql="${sql}" 
+		cols="${[id:null,message:'Text',worldRead:'Public',created:'Date']}"
+		limit="${5}" 
+		cellLabel="${cellLabel}"
+		where="${[ userId : userObject.id ]}" 
+		table="notes" />
+	</div>
+	<div class="area">
+	${publicUI.latestPublicNotes()}
+	</div>
+</g:htmlShell>
+~>

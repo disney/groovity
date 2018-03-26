@@ -1,0 +1,27 @@
+<assembly xmlns="http://maven.apache.org/ASSEMBLY/2.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/ASSEMBLY/2.0.0 http://maven.apache.org/xsd/assembly-2.0.0.xsd">
+	<id>hello-world</id>
+	<formats>
+		<format>zip</format>
+	</formats>
+	<includeBaseDirectory>true</includeBaseDirectory>
+	<baseDirectory>groovity-hello-world</baseDirectory>
+	<fileSets>
+		<fileSet>
+			<outputDirectory>/</outputDirectory>
+			<includes>
+				<include>src/main/**</include>
+				<include>src/test/**</include>
+			</includes>
+		</fileSet>
+	</fileSets>
+	<files>
+		<file>
+			<filtered>true</filtered>
+			<source>src/assembly/assembly-pom.xml</source>
+			<outputDirectory>/</outputDirectory>
+			<destName>pom.xml</destName>
+		</file>
+	</files>
+</assembly>

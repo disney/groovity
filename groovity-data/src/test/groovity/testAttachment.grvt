@@ -1,0 +1,50 @@
+/*******************************************************************************
+ * © 2018 Disney | ABC Television Group
+ *
+ * Licensed under the Apache License, Version 2.0 (the "Apache License")
+ * with the following modification; you may not use this file except in
+ * compliance with the Apache License and the following modification to it:
+ * Section 6. Trademarks. is deleted and replaced with:
+ *
+ * 6. Trademarks. This License does not grant permission to use the trade
+ *     names, trademarks, service marks, or product names of the Licensor
+ *     and its affiliates, except as required to comply with Section 4(c) of
+ *     the License and to reproduce the content of the NOTICE file.
+ *
+ * You may obtain a copy of the Apache License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the Apache License with the above modification is
+ * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the Apache License for the specific
+ * language governing permissions and limitations under the Apache License.
+ *******************************************************************************/
+load '/data/factory'
+CountDownLatch latch = new CountDownLatch(1)
+
+def watcher1 = factory.watch('author',"FibonacciAuthor"){ pointer ->
+	def author = factory(pointer)
+	assert author.name == 'Fibonacci'
+	latch.countDown()
+}
+
+def payload = [0,1,1,2,3,5,8,13,21,34,55,89,144] as byte[]
+def author = factory('author')
+author.pointer.id = "FibonacciAuthor"
+author.name='Fibonacci'
+author.mugshot = new Attachment.Bytes(payload).putAll(name:'mysequence',contentType:'pure/math',foo:'bar')
+author.store()
+try{
+	def checkObj =  factory(author.pointer)
+	//log(info:"Comparing ${checkObj} to ${author}")
+	def checkBytes = checkObj.mugshot.inputStream.bytes
+	assert checkBytes == payload
+	assert checkObj.map().mugshot.name=='mysequence'
+	assert latch.await(2,TimeUnit.SECONDS)
+}
+finally{
+	watcher1.cancel(true)
+	author.delete()
+}

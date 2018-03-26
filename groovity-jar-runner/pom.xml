@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>com.disney.groovity</groupId>
+		<artifactId>groovity-parent</artifactId>
+		<version>2.0.0-rc.16-SNAPSHOT</version>
+	</parent>
+	<artifactId>groovity-jar-runner</artifactId>
+	<packaging>jar</packaging>
+	<name>Groovity jar runner</name>
+	<build>
+		<plugins>
+
+		</plugins>
+	</build>
+	<dependencies>
+		<dependency>
+			<groupId>com.disney.groovity</groupId>
+			<artifactId>groovity-servlet-container</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.disney.groovity</groupId>
+			<artifactId>groovity-error-page</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+	</dependencies>
+</project>

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<web-fragment xmlns="http://java.sun.com/xml/ns/javaee"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://java.sun.com/xml/ns/javaee 
+	http://java.sun.com/xml/ns/javaee/web-fragment_3_0.xsd"
+  version="3.0">
+  
+  <name>groovity_servlet_admin</name>
+  
+  <servlet>
+  	<servlet-name>defaultWrapper</servlet-name>
+  	<servlet-class>com.disney.groovity.servlet.DefaultWrapperServlet</servlet-class>
+  </servlet>
+  
+  <servlet-mapping>
+        <servlet-name>defaultWrapper</servlet-name>
+        <url-pattern>/static/groovity/servlet/admin/*</url-pattern>
+    </servlet-mapping>
+    
+ <mime-mapping>
+    <extension>css</extension>
+    <mime-type>text/css</mime-type>
+  </mime-mapping>
+  
+  <mime-mapping>
+    <extension>png</extension>
+    <mime-type>image/png</mime-type>
+  </mime-mapping>
+ 
+</web-fragment>

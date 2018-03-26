@@ -1,0 +1,10 @@
+static conf=[
+	testDefaultBoolean: false,
+	testBooleanType:Boolean.class,
+	testDefaultInteger: 0,
+	testIntegerType: Integer.class,
+	testDefaultString: "test",
+	testStringType:String.class,
+	testNull:null
+]
+<~|${conf.testDefaultBoolean}|${conf.testBooleanType}|${conf.testDefaultInteger}|${conf.testIntegerType}|${conf.testDefaultString}|${conf.testStringType}|${conf.testNull}|~>

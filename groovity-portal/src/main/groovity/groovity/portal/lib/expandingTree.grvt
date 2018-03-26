@@ -1,0 +1,153 @@
+/*******************************************************************************
+ * © 2018 Disney | ABC Television Group
+ *
+ * Licensed under the Apache License, Version 2.0 (the "Apache License")
+ * with the following modification; you may not use this file except in
+ * compliance with the Apache License and the following modification to it:
+ * Section 6. Trademarks. is deleted and replaced with:
+ *
+ * 6. Trademarks. This License does not grant permission to use the trade
+ *     names, trademarks, service marks, or product names of the Licensor
+ *     and its affiliates, except as required to comply with Section 4(c) of
+ *     the License and to reproduce the content of the NOTICE file.
+ *
+ * You may obtain a copy of the Apache License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the Apache License with the above modification is
+ * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the Apache License for the specific
+ * language governing permissions and limitations under the Apache License.
+ *******************************************************************************/
+@Tag(
+	info = "Create an interactive browser based on a tree",
+	attrs = [
+		@Attr(
+			name = "id",
+			info = "A unique identifier for this table to isolate interactions",
+			required = true
+		),
+		@Attr(
+			name = "map",
+			info = "The nested map of tree data to display",
+			required = true
+		),
+		@Attr(
+			name = "title",
+			info = "The title to apply to the table",
+			required = false
+		),
+		@Attr(
+			name = "selected",
+			info = 'The currently selected key, defaults binding variable \'${id}_selected\'',
+			required = false	
+		),
+		@Attr(
+			name = "format",
+			info = "A closure that can be passed in to control the formatting (e.g. linking) of items in the tree, takes two arguments 'key' and 'value'",
+			required = false
+		)
+	]
+)
+class TreeBrowser{
+	
+	def p(String name){
+		request.getParameter(name);
+	}
+	
+	def tag(Map atts, Closure body){
+		def id = atts.id;
+		if(id instanceof Closure){
+			id = id();
+		}
+		if(id==null){
+			throw new RuntimeException("PaginatedTable requires a 'id' attribute");
+		}
+		def map = atts.map;
+		if(map instanceof Closure){
+			map = map();
+		}
+		if(map==null){
+			throw new RuntimeException("TreeBrowser requires a 'map' attribute");
+		}
+		def title = atts.title;
+		if(title instanceof Closure){
+			title = title();
+		}
+		def selected = p("${id}_selected");
+		if(selected==null){
+			selected = atts.selected;
+		}
+		if(selected instanceof Closure){
+			selected = selected();
+		}
+		if(!selected){
+			selected="/";
+		}
+		//log.info("Selected is ${selected}")
+		def format = atts.format;
+		if(format instanceof Closure){
+			try{
+				def nformat = format();
+				if(nformat instanceof Closure){
+					format = nformat;
+				}
+			}
+			catch(Exception e){}
+		}
+		def queryString = request.queryString ?: '';
+		if(!format){
+			
+			format = { key, value -> 
+				
+				def href = uri(base:"${request.requestURI}?${queryString}",{ param(name:"${id}_selected",value:pathStack.join('')+key) });
+				stream <~ <a href="${href}">${key}</a> ~> 
+			}
+		} 
+		pathStack = []
+		recursiveTemplate = <~ 
+			<g:each var="entry" in="${currentMap}">
+				<g:set var="entryPath" value="${pathStack.join('')+entry.key}"/>
+				<g:if test="${entry.value instanceof Map}">
+				<li class="treeFolder}">
+					<div class="${entryPath==selected?'selected':''}">
+					${format(entry.key,entry.value)}
+					</div>
+					${!(pathStack << entry.key) ?:'' }
+					<g:if test="${!entry.value.isEmpty() && selected?.startsWith(pathStack.join(''))}">
+						<ol>
+							<g:set var="currentMap" value="${entry.value}" />
+							
+							<g:write value="${recursiveTemplate}"/>
+							
+						</ol>
+					</g:if>
+					${!pathStack.pop() ?:'' }
+				</li>
+				</g:if>
+				<g:else>
+				<li class="treeLeaf">
+					<div class="${entryPath==selected?'selected':''}">
+					${format(entry.key,entry.value)}
+					</div>
+				</li>
+				</g:else>
+			</g:each>
+		~>
+		currentMap = ["/":map];
+		stream <~
+			<g:if test="${title}">
+				<div class="title">
+				${title}
+				</div>
+			</g:if>
+			<div style="width:100%;overflow:auto">
+			<ol class="expandingTree">
+				<g:write value="${recursiveTemplate}" />
+			</ol>	
+			</div>
+		~>
+	}
+}

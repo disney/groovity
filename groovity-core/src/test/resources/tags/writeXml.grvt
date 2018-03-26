@@ -1,0 +1,273 @@
+/*******************************************************************************
+ * © 2018 Disney | ABC Television Group
+ *
+ * Licensed under the Apache License, Version 2.0 (the "Apache License")
+ * with the following modification; you may not use this file except in
+ * compliance with the Apache License and the following modification to it:
+ * Section 6. Trademarks. is deleted and replaced with:
+ *
+ * 6. Trademarks. This License does not grant permission to use the trade
+ *     names, trademarks, service marks, or product names of the Licensor
+ *     and its affiliates, except as required to comply with Section 4(c) of
+ *     the License and to reproduce the content of the NOTICE file.
+ *
+ * You may obtain a copy of the Apache License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the Apache License with the above modification is
+ * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the Apache License for the specific
+ * language governing permissions and limitations under the Apache License.
+ *******************************************************************************/
+import javax.xml.bind.annotation.*
+import javax.xml.bind.JAXBElement
+import javax.xml.namespace.QName
+ 
+class Example1{
+ 	String foo = "la"
+ 	int bar = 123
+ 	def xyz = { "abc" }
+ 	def joe = [ a:1, b:2]
+ 	def eeks =['eek','aak']
+}
+ 
+def out1 = write(format:'xml',to:"",value:new Example1(), filter:ModelFilter.transform('foo'){ it.reverse() })
+assert out1 == '<example1><bar>123</bar><eeks>eek</eeks><eeks>aak</eeks><foo>al</foo><joe><a>1</a><b>2</b></joe><xyz>abc</xyz></example1>'
+out1 = write(format:'xml',to:"",value:new Example1(), filter:ModelFilter.transform('foo'){ it.reverse() }, pretty:true)
+assert out1 == '<example1>\n\t<bar>123</bar>\n\t<eeks>eek</eeks>\n\t<eeks>aak</eeks>\n\t<foo>al</foo>\n\t<joe>\n\t\t<a>1</a>\n\t\t<b>2</b>\n\t</joe>\n\t<xyz>abc</xyz>\n</example1>'
+def ex1 = parse(value:out1, to:new Example1())
+ex1.eeks << 'oop'
+out1 = write(format:'xml',value:ex1, to:"")
+def parsed = parse(value:out1, to:new Example1())
+assert Model.mapObject(parsed) == Model.mapObject(ex1)
+out1 = write(value:parsed, to:"")
+parsed = parse(value:out1, to:new Example1())
+assert Model.mapObject(parsed) == Model.mapObject(ex1)
+assert Model.mapObject(parsed) != Model.mapObject(new Example1())
+
+@XmlRootElement(name="ex2")
+class Example2{
+ 	@ModelSkip
+ 	String foo = "la"
+ 	@XmlAttribute
+ 	int bar = 123
+ 	@XmlAttribute(name="x")
+ 	def xyz = { "abc<>&'\"" }
+ 	@XmlAttribute
+ 	def joe = [ a:1, b:2]
+ 	@XmlAttribute
+ 	def here="there"
+}
+def out2 = set{
+	write(format:'xml',value:new Example2(), filter:[
+		ModelFilter.transform('bar'){ it * 10 },
+		ModelFilter.rename('x','y'),
+		ModelFilter.exclude('here')
+	])
+}
+assert out2 == '<ex2 bar="1230" joe="{a=1, b=2}" y="abc&lt;&gt;&amp;&apos;&quot;"></ex2>'
+
+class Example3{
+	@XmlValue
+	String val="Myval"
+}
+@InheritConstructors
+@XmlRootElement(namespace="http://foo.com")
+class BarList extends ArrayList{
+}
+def out3 = write(format:'xml',value:new Example3(), to:"")
+assert out3 == '<example3>Myval</example3>'
+out3 = write(format:'xml',value:[new Example3(), new Example3()], root:"list", to:"")
+assert out3 == '<list><example3>Myval</example3><example3>Myval</example3></list>'
+out3 = write(format:'xml',value:new BarList([new Example3(), new Example3()]), to:"")
+assert out3 == '<ns1:barList xmlns:ns1="http://foo.com"><example3>Myval</example3><example3>Myval</example3></ns1:barList>'
+def out4 = write(format:'xml',to:"",value:[foo:new Example3()],root:'doc',filter:ModelFilter.add('bar'){'xyz'})
+assert out4 == '<doc><bar>xyz</bar><foo>Myval</foo></doc>'
+out4 = write(format:'xml',to:"",value:[foo:new Example3()],root:'doc',filter:ModelFilter.add('bar'){'xyz'},pretty:true)
+assert out4 == '<doc>\n\t<bar>xyz</bar>\n\t<foo>Myval</foo>\n</doc>'
+
+class Example4{
+	String[] tops = ['a','b','c'] as String[]
+	@XmlElementWrapper
+	@XmlElement(name="nested")
+	String[] nester = ['x','y','z'] as String[]
+	@XmlElementWrapper(name="items")
+	int[] item = [1,2,3] as int[]
+	@XmlAttribute(name='keys')
+	String[] keywords = ['foo','bar'] as String[]
+	@XmlList
+	String[] letters = ['a','b','c'] as String[]
+	Example5 bin = new Example5()
+}
+
+class Example5{
+	@XmlValue
+	String[] vals = ['<','>','&','"',"'"]
+}
+def out5 = write(format:'xml', to:"", value:new Example4())
+assert out5 == '<example4 keys="foo bar"><bin>&lt; &gt; &amp; &quot; &apos;</bin><items><item>1</item><item>2</item><item>3</item></items><letters>a b c</letters><nester><nested>x</nested><nested>y</nested><nested>z</nested></nester><tops>a</tops><tops>b</tops><tops>c</tops></example4>'
+out5 = write(format:'xml', to:"", value:new Example4(), pretty:true)
+assert out5 == '<example4 keys="foo bar">\n\t<bin>&lt; &gt; &amp; &quot; &apos;</bin>\n\t<items>\n\t\t<item>1</item>\n\t\t<item>2</item>\n\t\t<item>3</item>\n\t</items>\n\t<letters>a b c</letters>\n\t<nester>\n\t\t<nested>x</nested>\n\t\t<nested>y</nested>\n\t\t<nested>z</nested>\n\t</nester>\n\t<tops>a</tops>\n\t<tops>b</tops>\n\t<tops>c</tops>\n</example4>'
+
+class Example6{
+	@XmlElements([
+		@XmlElement(name="i", type=Integer.class),
+		@XmlElement(name="l", type=Long.class),
+		@XmlElement(name="v")
+	])
+	List values = [ 1, 2l, "hi", 1.1]
+}
+def out6 = set{
+	write(format:'xml',value:new Example6())
+}
+assert out6 == '<example6><i>1</i><l>2</l><v>hi</v><v>1.1</v></example6>'
+
+class Example7{
+	@XmlElements([
+		@XmlElement(name="e6", type=Example6.class),
+		@XmlElement(name="s")
+	])
+	def foo = [new Example6(),"cheese"]
+	@XmlElementWrapper(name='bars')
+	List bar = null
+}
+def out7 = write(format:'xml',to:"",value:new Example7())
+assert out7 == '<example7><bars></bars><e6><i>1</i><l>2</l><v>hi</v><v>1.1</v></e6><s>cheese</s></example7>'
+out7 = write(format:'xml',to:"",value:new Example7(), pretty:true)
+assert out7 == '<example7>\n\t<bars></bars>\n\t<e6>\n\t\t<i>1</i>\n\t\t<l>2</l>\n\t\t<v>hi</v>\n\t\t<v>1.1</v>\n\t</e6>\n\t<s>cheese</s>\n</example7>'
+
+@XmlRootElement
+@XmlAccessorType(XmlAccessType.FIELD)
+class Example8{
+	@XmlElement
+	String a
+	@XmlAnyElement
+	List kids
+}
+
+def sample = '<example8><a>1</a><b>2</b><c>3</c></example8>'
+
+parsed = parse(value:sample)
+def rt = write(value:parsed, format:'xml', to:"", root:"example8")
+assert rt == sample
+parsed = parse(value:sample, to:Example8.class)
+rt = write(value:parsed, format:'xml', to:"")
+assert rt == sample
+rt = write(value:parsed, format:'xml', to:"", pretty:true)
+assert rt == '<example8>\n\t<a>1</a>\n\t<b>2</b>\n\t<c>3</c>\n</example8>'
+rt = write(value:parsed, to:"")
+assert rt == '{"a":"1","kids":["<b>2<\\/b>","<c>3<\\/c>"]}'
+
+sample = '<example8><a>1</a><b foo="bar">2</b><c>3</c><b>4</b><z><x/></z></example8>'
+parsed = parse(value:sample, to:Example8.class)
+rt = write(value:parsed, format:'xml', to:"")
+assert rt == sample
+rt = write(value:parsed, format:'xml', to:"", pretty:true)
+assert rt == '<example8>\n\t<a>1</a>\n\t<b foo="bar">2</b>\n\t<c>3</c>\n\t<b>4</b>\n\t<z><x/></z>\n</example8>'
+rt = write(value:parsed, to:"")
+assert rt == '{"a":"1","kids":["<b foo=\\"bar\\">2<\\/b>","<c>3<\\/c>","<b>4<\\/b>","<z><x\\/><\\/z>"]}'
+
+@XmlRootElement
+@XmlAccessorType(XmlAccessType.FIELD)
+@Canonical
+class Example9{
+	@XmlMixed
+	@XmlAnyElement
+	List content
+}
+
+sample = '<example9>hello world <a>nested</a> Goodbye World</example9>'
+parsed = parse(value:sample, to:Example9.class)
+rt = write(value:parsed, format:'xml', to:"")
+assert rt == sample
+rt = write(value:parsed, format:'xml', to:"", pretty:true)
+assert rt == '<example9>\n\thello world \n\t<a>nested</a>\n\t Goodbye World\n</example9>'
+rt = write(value:parsed, to:"")
+assert rt == '{"content":["hello world ","<a>nested<\\/a>"," Goodbye World"]}'
+
+@XmlRootElement(name="mix")
+class Example10{
+	@XmlMixed
+	List content
+}
+
+class Example11{
+	@XmlAttribute
+	def cheese = "grater"
+	def garlic = "press"
+}
+
+class Example12{
+	@XmlAttribute
+	def rhythm = "soul"
+	def funk = "rock"
+}
+
+ex10 = new Example10()
+
+ex10.content=[
+'opening ',
+new JAXBElement(new QName('http://foo.com/','bar'),Example11.class,new Example11()),
+' middle ',
+new JAXBElement(new QName('xyz'),Example12.class,new Example12()),
+' closing'
+]
+rt = write(value:ex10, format:"xml", to:"")
+assert rt == '<mix>opening <ns1:bar cheese="grater" xmlns:ns1="http://foo.com/"><garlic>press</garlic></ns1:bar> middle <xyz rhythm="soul"><funk>rock</funk></xyz> closing</mix>'
+rt = write(value:ex10,  to:"")
+assert rt == '{"content":["opening ",{"cheese":"grater","garlic":"press"}," middle ",{"funk":"rock","rhythm":"soul"}," closing"]}'
+
+@XmlRootElement(namespace="http://name.com/",name="space")
+@XmlAccessorType(XmlAccessType.FIELD)
+class Example13{
+	@XmlElement(namespace="http://space.com/",name="name")
+	Example14 foo
+	@XmlElement(namespace="http://space.com/",name="name2")
+	Example14 abc
+}
+
+
+class Example14{
+	String bar
+}
+
+ex13 = new Example13()
+ex13.foo = new Example14()
+ex13.foo.bar='xyz'
+ex13.abc = new Example14()
+ex13.abc.bar="lmn"
+rt = write(value:ex13, format:"xml", to:"")
+assert rt=='<ns1:space xmlns:ns1="http://name.com/" xmlns:ns2="http://space.com/"><ns2:name2><bar>lmn</bar></ns2:name2><ns2:name><bar>xyz</bar></ns2:name></ns1:space>'
+
+@XmlRootElement(namespace="http://ns1.com/")
+@XmlAccessorType(XmlAccessType.FIELD)
+class Example15{
+	@XmlAttribute
+ 	String foo = "<>&'\"";
+ 	@XmlAttribute(namespace="http://ns1.com/")
+ 	int bar = 456
+ 	@XmlAttribute(namespace="http://ns2.com/")
+ 	int xyz = 789
+ 	@XmlElement(namespace="http://ns3.com/")
+ 	@XmlList
+	String[] letters = ['a','b','c'] as String[]
+	@XmlElementWrapper(namespace="http://ns4.com/")
+	@XmlElement(name="nested",namespace="http://ns5.com/")
+	String[] nester = ['x','y','z'] as String[]
+	@XmlElementWrapper(name="items",namespace="http://ns6.com")
+	int[] item = [1,2,3] as int[]
+	@XmlElement(namespace="http://ns7.com/")
+	String last = 'done'
+	@XmlElement(namespace="http://ns5.com/")
+	List embed = ['a','b','c']
+}
+def ex15 = new Example15()
+ex15.xyz=987
+rt = write(value:ex15, format:"xml", to:"")
+assert rt=='<ns1:example15 ns1:bar="456" foo="&lt;&gt;&amp;&apos;&quot;" ns7:xyz="987" xmlns:ns1="http://ns1.com/" xmlns:ns2="http://ns5.com/" xmlns:ns3="http://ns6.com" xmlns:ns4="http://ns7.com/" xmlns:ns5="http://ns3.com/" xmlns:ns6="http://ns4.com/" xmlns:ns7="http://ns2.com/"><ns2:embed>a</ns2:embed><ns2:embed>b</ns2:embed><ns2:embed>c</ns2:embed><ns3:items><item>1</item><item>2</item><item>3</item></ns3:items><ns4:last>done</ns4:last><ns5:letters>a b c</ns5:letters><ns6:nester><ns2:nested>x</ns2:nested><ns2:nested>y</ns2:nested><ns2:nested>z</ns2:nested></ns6:nester></ns1:example15>'
+parsed = parse(value:rt, to: Example15.class)
+assert parsed.xyz == 987
+rt = write(value:ex15, format:"xml", to:"", pretty:true)
+assert rt=='<ns1:example15 ns1:bar="456" foo="&lt;&gt;&amp;&apos;&quot;" ns7:xyz="987" xmlns:ns1="http://ns1.com/" xmlns:ns2="http://ns5.com/" xmlns:ns3="http://ns6.com" xmlns:ns4="http://ns7.com/" xmlns:ns5="http://ns3.com/" xmlns:ns6="http://ns4.com/" xmlns:ns7="http://ns2.com/">\n\t<ns2:embed>a</ns2:embed>\n\t<ns2:embed>b</ns2:embed>\n\t<ns2:embed>c</ns2:embed>\n\t<ns3:items>\n\t\t<item>1</item>\n\t\t<item>2</item>\n\t\t<item>3</item>\n\t</ns3:items>\n\t<ns4:last>done</ns4:last>\n\t<ns5:letters>a b c</ns5:letters>\n\t<ns6:nester>\n\t\t<ns2:nested>x</ns2:nested>\n\t\t<ns2:nested>y</ns2:nested>\n\t\t<ns2:nested>z</ns2:nested>\n\t</ns6:nester>\n</ns1:example15>'

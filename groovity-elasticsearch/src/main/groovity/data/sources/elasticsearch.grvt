@@ -1,0 +1,311 @@
+/*******************************************************************************
+ * © 2018 Disney | ABC Television Group
+ *
+ * Licensed under the Apache License, Version 2.0 (the "Apache License")
+ * with the following modification; you may not use this file except in
+ * compliance with the Apache License and the following modification to it:
+ * Section 6. Trademarks. is deleted and replaced with:
+ *
+ * 6. Trademarks. This License does not grant permission to use the trade
+ *     names, trademarks, service marks, or product names of the Licensor
+ *     and its affiliates, except as required to comply with Section 4(c) of
+ *     the License and to reproduce the content of the NOTICE file.
+ *
+ * You may obtain a copy of the Apache License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the Apache License with the above modification is
+ * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the Apache License for the specific
+ * language governing permissions and limitations under the Apache License.
+ *******************************************************************************/
+import com.disney.groovity.elasticsearch.EsQueryString
+import com.disney.groovity.data.StorePayload
+import java.text.SimpleDateFormat
+import org.apache.http.HttpResponse
+
+static Map conf=[
+	'es.baseUrl':'http://localhost:9200/',
+	'http.timeout':60,
+	'es.refresh':false,
+	'es.httpDecorator':''
+]
+
+private static Closure _interceptor = null;
+
+@CompileStatic
+private void decorateHttp(){
+	String ds = conf.get('es.httpDecorator')
+	if(ds){
+		run(ds)
+	}
+}
+
+@CompileStatic
+@Function(info="Look up one or more objects from elasticsearch")
+public void call(Map<String,Object> map, Map typeConf){
+	def index = typeConf.get('es.index')
+	def factory = load('/data/factory')
+	map.each{ entry ->
+		EsQueryString eqs = new EsQueryString(entry.key,typeConf) 
+		String restQuery = eqs.toRestQuery()
+		if(eqs.isSearching()){
+			restQuery += "&_source=false"
+		}
+		String esUrl = "${conf.get('es.baseUrl')}${restQuery}"
+		entry.value = http(async:true,url:esUrl,timeout:conf.get('http.timeout')){
+			decorateHttp()
+			handler{ resp ->
+				HttpResponse httpResponse = (HttpResponse) resp
+				Map esMap = (Map) parse(value:resp)
+				intercept({
+					[
+						method: 'GET',
+						url: restQuery,
+						status: httpResponse.statusLine.statusCode,
+						response: esMap
+					]
+				})
+				switch(httpResponse.statusLine.statusCode){
+					case 200:
+						validate(esMap)
+						//log(info:"Got results ${esMap}")
+						if(eqs.isCounting()){
+							return esMap.get('count')
+						}
+						if(eqs.isSearching()){
+							Map hitsMap = (Map) esMap.get('hits')
+							if(hitsMap==null){
+								return
+							}
+							List<Map> hitList = (List<Map>) hitsMap.get('hits')
+							return hitList.collect{ 
+								String itype = (String) it.get('_type')
+								if(factory.invokeMethod('isKnownType',itype)){
+									return new Pointer(itype, (String)it.get('_id')) 
+								}
+								else{
+									return new Pointer('elasticsearch',"${it.get('_index')}/${itype}/${it.get('_id')}")
+								}
+							}
+						}
+						def found = esMap.get('found')
+						if(found){
+							esMap.remove('found')
+							return esMap
+						}
+					case 404:
+						return null
+					default:
+						log(error:<~${httpResponse.statusLine} ElasticSearch Error Message: <g:write value="${esMap}"/>~>)
+						throw new RuntimeException("${httpResponse.statusLine} error trying to connect to elasticsearch")
+				}
+			}
+		}
+	}
+}
+
+@CompileStatic
+private static void intercept(Closure producer){
+	if(_interceptor!=null){
+		Object exchange = producer()
+		_interceptor.call(exchange)
+	}
+}
+
+@CompileStatic
+public void setInterceptor(Closure c){
+	_interceptor = c
+}
+
+@CompileStatic
+private static Map validate(Map esMap){
+	if(esMap.containsKey('error')){
+		throw new RuntimeException(set{ write(value:esMap) }.toString())
+	}
+	esMap
+}
+
+@CompileStatic
+@Function(info="Add an object to an elasticsearch index. ")
+public String store(String key, StorePayload payload, Map typeConf){
+	Map data = (Map) payload.data
+	EsQueryString eqs = new EsQueryString(key,typeConf) 
+	eqs.version = (Long) data.remove('_version')
+	String method = eqs.idValue ? 'PUT' : 'POST'
+	String restUpdate = addRefresh(eqs.toRestUpdate())
+	String esUrl = "${conf.get('es.baseUrl')}${restUpdate}"
+	Map result = (Map) http(method:method,url:esUrl,timeout:conf.get('http.timeout'),data:data){
+		decorateHttp()
+		header(name:'Content-Type',value:'application/json')
+		handler{ resp ->
+			HttpResponse httpResponse = (HttpResponse) resp
+			Map esMap = (Map) parse(value:resp)
+			intercept({
+				[
+					method: method,
+					url: restUpdate,
+					data: data,
+					status: httpResponse.statusLine.statusCode,
+					response: esMap
+				]
+			})
+			switch(httpResponse.statusLine.statusCode){
+				case 200:
+				case 201:
+					return validate(esMap)
+				default:
+					log(error:<~${httpResponse.statusLine} ElasticSearch Error Message: <g:write value="${esMap}"/>~>)
+					throw new RuntimeException("${httpResponse.statusLine} error trying to connect to elasticsearch")
+			}
+		}
+	}
+	//log(info:"Stored ${result} at ${esUrl}")
+	eqs.idValue = result.get('_id')
+	data.put('_version',result.get('_version'))
+	eqs.toString()
+}
+
+@CompileStatic
+private String addRefresh(String str){
+	def esRefresh = conf.get('es.refresh')
+	if(esRefresh){
+		if(str.indexOf('?') > 0){
+			return "${str}&refresh=${esRefresh}"
+		}
+		return  "${str}?refresh=${esRefresh}"
+	}
+	str
+}
+
+@CompileStatic
+@Function(info="Remove an object from elasticsearch ")
+public void delete(String key, Map typeConf){
+	EsQueryString eqs = new EsQueryString(key,typeConf) 
+	String restUpdate = addRefresh(eqs.toRestUpdate())
+	String esUrl = "${conf.get('es.baseUrl')}${restUpdate}"
+	http(method:'DELETE',url:esUrl,timeout:conf.get('http.timeout')){
+		decorateHttp()
+		handler{ resp ->
+			HttpResponse httpResponse = (HttpResponse) resp
+			Map esMap = (Map) parse(value:resp)
+			intercept({
+				[
+					method: 'DELETE',
+					url: restUpdate,
+					status: httpResponse.statusLine.statusCode,
+					response: esMap
+				]
+			})
+			switch(httpResponse.statusLine.statusCode){
+				case 200:
+					return validate(esMap)
+				default:
+					log(error:<~${httpResponse.statusLine} ElasticSearch Error Message: <g:write value="${esMap}"/>~>)
+					throw new RuntimeException("${httpResponse.statusLine} error trying to connect to elasticsearch")
+			}
+		}
+	}
+}
+
+@CompileStatic
+@Function(info="retrieve IDs of documents updates since the given date")
+public long dateRange(String key, long lowerBound, long upperBound, Map typeConf, Closure keyCallback){
+	if(!typeConf || !typeConf.containsKey('es.date')){
+		throw new RuntimeException("elasticsearch type must be configured with 'es.date' to watch for changes")
+	}
+	def modCol = typeConf.get('es.date')
+	SimpleDateFormat format = null;
+	if(typeConf.containsKey('es.dateFormat')){
+		format = new SimpleDateFormat((String)typeConf.get('es.dateFormat'))
+	}
+	String lb = format ? format.format(new Date(lowerBound)) : String.valueOf(lowerBound)
+	String ub = format ? format.format(new Date(upperBound)) : String.valueOf(upperBound)
+	EsQueryString eqs = new EsQueryString(key,typeConf) 
+	String clause = "${modCol}:{${lb} TO ${ub}}"
+	if(eqs.query){
+		eqs.query = "${clause} AND (${eqs.query})"
+	}
+	else{
+		eqs.query = clause
+	}
+	boolean secondTry = false;
+	int remaining = -1;
+	HashSet alreadySeen = new HashSet();
+	remainLoop:
+	while(remaining != 0){
+		String restQuery = eqs.toRestQuery()
+		def delim = restQuery.contains("?") ? "&" : "?"
+		restQuery = "${restQuery}${delim}_source=${modCol}&sort=${modCol}:asc"
+		String esUrl = "${conf.get('es.baseUrl')}${restQuery}"
+		http(url:esUrl,timeout:conf.get('http.timeout')){
+			decorateHttp()
+			handler{ resp ->
+				HttpResponse httpResponse = (HttpResponse) resp
+				Map esMap = (Map) parse(value:resp)
+				intercept({
+					[
+						method: 'GET',
+						url: restQuery,
+						status: httpResponse.statusLine.statusCode,
+						response: esMap
+					]
+				})
+				switch(httpResponse.statusLine.statusCode){
+					case 200:
+						def factory = load('/data/factory')
+						validate(esMap)
+						Map hitsMap = (Map) esMap.get('hits')
+						if(hitsMap==null){
+							remaining=0;
+							return
+						}
+						int total = (int) hitsMap.get('total')
+						remaining = total - ( eqs.from ?: 0)
+						List hits = (List) hitsMap.get('hits')
+						def numHits = hits.size();
+						for(int i=0; i< numHits; i++){
+							Map hit = (Map) hits.get(i)
+							String itype = (String) hit.get('_type')
+							Object cbValue = (String) hit.get('_id')
+							if(factory.invokeMethod('isKnownType',itype)){
+								cbValue = new Pointer(itype,cbValue)
+							}
+							if(alreadySeen.add(cbValue)){
+								keyCallback(cbValue)
+								Map sourceMap = (Map) hit.get("_source")
+								String modVal = (String)sourceMap.get(modCol);
+								long hdate = format ? format.parse(modVal).time : Long.valueOf(modVal);
+								if(hdate > lowerBound){
+									lowerBound = hdate
+								}
+							}
+							else{
+								if(!secondTry){
+									log(debug:"Hit duplicate ${cbValue}, will start over for good measure")
+									//sometimes if two objects have the same timestamp, ordering can be arbitrary, this means we may have missed something
+									eqs.from=0
+									remaining = -1;
+									secondTry = true;
+									break
+								}
+							}
+						}
+						if(remaining>0){
+							remaining -= numHits
+							if(remaining && numHits>0){
+								eqs.from = eqs.from ? eqs.from + numHits : numHits
+							}
+						}
+						return null
+					default:
+						log(error:<~${httpResponse.statusLine} ElasticSearch Error Message: <g:write value="${esMap}"/>~>)
+						throw new RuntimeException("${httpResponse.statusLine} error trying to connect to elasticsearch")
+				}
+			}
+		}
+	}
+	lowerBound
+}

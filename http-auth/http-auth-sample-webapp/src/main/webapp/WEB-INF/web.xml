@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app id="http-auth-sample-webapp" xmlns="http://java.sun.com/xml/ns/javaee" version="2.5">
+	<display-name>HTTP Auth Sample Web Application</display-name>
+
+	<servlet>
+		<servlet-name>default</servlet-name>
+		<servlet-class>org.apache.catalina.servlets.DefaultServlet</servlet-class>
+	</servlet>
+	<servlet-mapping>
+		<servlet-name>default</servlet-name>
+		<url-pattern>/</url-pattern>
+	</servlet-mapping>
+	<filter>
+		<filter-name>VerificationFilter</filter-name>
+		<filter-class>com.disney.http.auth.server.VerificationFilter</filter-class>
+		<init-param>
+			<param-name>configFile</param-name>
+			<param-value>WEB-INF/auth.xml</param-value>
+		</init-param>
+	</filter>
+	<filter-mapping>
+		<servlet-name>default</servlet-name>
+		<filter-name>VerificationFilter</filter-name>
+	</filter-mapping>
+</web-app>

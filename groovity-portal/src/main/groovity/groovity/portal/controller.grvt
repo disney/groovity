@@ -1,0 +1,187 @@
+/*******************************************************************************
+ * © 2018 Disney | ABC Television Group
+ *
+ * Licensed under the Apache License, Version 2.0 (the "Apache License")
+ * with the following modification; you may not use this file except in
+ * compliance with the Apache License and the following modification to it:
+ * Section 6. Trademarks. is deleted and replaced with:
+ *
+ * 6. Trademarks. This License does not grant permission to use the trade
+ *     names, trademarks, service marks, or product names of the Licensor
+ *     and its affiliates, except as required to comply with Section 4(c) of
+ *     the License and to reproduce the content of the NOTICE file.
+ *
+ * You may obtain a copy of the Apache License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the Apache License with the above modification is
+ * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the Apache License for the specific
+ * language governing permissions and limitations under the Apache License.
+ *******************************************************************************/
+static conf=[
+	PORTAL_AUTH_REALM:'Portal'
+]
+static web = [
+	path: "/{pageLookup : .*}",
+	output:"text/html",
+	charset:"UTF-8",
+	errorPage:'/groovity/portal/error',
+	methods:['GET','POST']
+]
+
+static args=[
+	pageLookup:null,
+	pageRoleAction:null,
+	mode:null,
+	userName:null,
+	fullName:null,
+	nickName:null,
+	digest:null
+]
+
+static portal = [
+	title:'Portal',
+	roles:["anon","auth"]
+];
+
+
+@Field portalLib = load('/groovity/portal/lib/portal');
+load '/data/factory'
+
+//define common binding variables for providing feedback from form processing
+formError = null;
+formMessage = null;
+
+//lookup portal page metadata from sitemap
+portalPageConfig = null;
+def isBootstrapped = portalLib.isBootstrapped();
+if(!isBootstrapped && userName && request.method=='POST'){
+	//process bootstrap form
+	try{
+		def newPerson = factory('person').putAll([userName:userName,fullName:fullName,nickName:nickName,digest:digest])
+		newPerson.bootstrap()
+		formMessage = "Superuser '${userName}' created, please login to make further changes"
+		isBootstrapped = true;
+	}
+	catch(Exception e){
+		formError = e;
+		log(error:"Error in form processing",thrown:e);
+	}
+}
+if(isBootstrapped){
+	def lookup1 = "/${pageLookup}";
+	def lookup2 = "/${pageLookup}/";
+	def lookup3 = "/${pageLookup}${pageLookup?'/':''}index";
+	portalPageConfig = portalLib.sitemap.find{ it.path==lookup1 || it.path==lookup2 || it.path==lookup3 }
+}
+if(!portalPageConfig){
+	portalPageConfig = portalLib.sitemap.find{ it.scriptPath=='/groovity/portal/controller' }
+}
+def rolePath = portalPageConfig.path ?: "/${pageLookup}";
+hasAdminRole = request.userPrincipal?.hasRole(request.session, rolePath, ['admin']);
+if(request.method=='POST'){
+	//process page role form submission
+	if(hasAdminRole && request.method=="POST" && pageRoleAction){
+		if(pageRoleAction=='update'){
+			def pageRoles = request.parameterMap.keySet().findAll{ it.startsWith('pageRole_') }.collect { it.substring(9) }
+			request.session.getAttribute('pageRoles').put(rolePath,pageRoles)
+		}
+		else if(pageRoleAction=='reset'){
+			request.session.getAttribute('pageRoles').remove(rolePath)
+		}
+	}
+}
+
+roles = request.session?.getAttribute('pageRoles')?.get(rolePath)
+if(roles==null){
+	if(request.userPrincipal){
+		roles = request.userPrincipal.getRoles(request.session, rolePath, portalPageConfig.roles)
+	}
+	else if(portalPageConfig.roles.contains('anon')){
+		roles = ['anon']
+	}
+	else{
+		roles = []
+	}
+}
+
+if(portalPageConfig.scriptPath != '/groovity/portal/controller'){
+	if(portalPageConfig.roles){
+		if(roles.isEmpty()){
+			response.sendError(403,'You lack permission to see this page')
+			return;
+		}
+	}
+	run(portalPageConfig.scriptPath)
+}
+else if(pageLookup && isBootstrapped){
+	response.sendError(404,"No page found at ${pageLookup}")
+}
+else{
+	return <~
+	<g:portal>
+		<div class="portlet" style="text-align:center">
+			<div class="title">Portal</div>
+			<div style="margin-bottom:8px"><em>noun</em> <span style="margin:0px 8px">|</span> <span style="font-size:1.15em;">\ˈˈpȯr-t<sup>ə</sup>l\</span></div>
+			<div>
+			Door, Entrance
+			</div>
+		</div>
+		<g:if test="${roles.contains('anon')}">
+			<g:if test="${!isBootstrapped}">
+				<script src="/static/groovity/portal/md5.js" type="text/javascript" charset="utf-8"></script>
+				<script>
+					function doDigest(){
+						var form = document.forms[0];
+						var pw = form.elements[3].value;
+						if(pw.length > 0){
+							form.digest.value = CryptoJS.MD5(form.userName.value+":${conf.PORTAL_AUTH_REALM}:"+pw);
+						}
+						form.elements[3].value="";
+					}
+				</script>
+				<div class="portlet" style="text-align:center">
+					<div class="title">Bootstrap</div>
+					Please create a local superuser account, which you will then use to configure other accounts and roles.
+					<form method="POST" onSubmit="doDigest();" action="/">
+					<div style="padding:6px 0px 6px 12px">
+						<div>
+						Username
+						<input type="text" name="userName" value="" />
+						</div>
+						<div>
+						Full Name
+						<input type="text" name="fullName" value="" />
+						</div>
+						<div>
+						Nickname
+						<input type="text" name="nickName" value="" />
+						</div>
+						<div>
+						Password
+						<input type="password" value=""/>
+						</div>
+						<input type="hidden" name="digest" value="" />
+						<input type="submit" value="Create new Superuser"/>
+					</div>
+					</form>
+				</div>
+			</g:if>
+			<g:else>
+				<div class="portlet" style="text-align:center">
+					<div class="title">Welcome</div>
+					Please <a href="${load('/groovity/portal/lib/layout').conf.PORTAL_LOGIN_LINK}/">login</a>
+				</div>
+			</g:else>
+		</g:if>
+		<g:if test="${roles.contains('auth')}">
+		<g:each var="org" in ="${portalLib.rootPages}">
+			<g:portalLinks path="${org.path}" />
+		</g:each>
+		</g:if>
+	</g:portal>
+	~>
+}

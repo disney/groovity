@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+	<parent>
+		<groupId>com.disney.groovity</groupId>
+		<artifactId>http-auth-parent</artifactId>
+		<version>2.0.0-rc.16-SNAPSHOT</version>
+	</parent>	
+	<modelVersion>4.0.0</modelVersion>
+	<artifactId>http-auth-sample-webapp</artifactId>
+	<name>HTTP Authorization Sample Webapp</name>
+	<packaging>war</packaging>
+	<properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+	</properties>
+	<build>
+	<plugins>
+        <plugin>
+			<groupId>org.apache.tomcat.maven</groupId>
+			<artifactId>tomcat7-maven-plugin</artifactId>
+			<version>2.0</version>
+			<configuration>
+				<path>/</path>
+			</configuration>
+		</plugin>
+	</plugins>
+	</build>
+	<dependencies>
+		<dependency>
+			<groupId>com.disney.groovity</groupId>
+			<artifactId>http-auth-server</artifactId>
+			<version>${project.version}</version>
+		</dependency>
+	</dependencies>
+
+</project>

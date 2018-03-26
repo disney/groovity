@@ -1,0 +1,67 @@
+html, body{ 
+	margin:0px;
+	adding:0px 
+}
+header{
+	margin:0px 0px 12px 0px;
+	padding:8px 16px;
+	border-bottom:1px dotted #ddd;
+}
+header h1{margin:0px;padding:0px}
+blockquote{
+	margin:4px 0px 4px 16px;
+	padding:12px;
+	border-left:16px solid #ddd
+}
+section{
+	margin:8px 16px;
+	padding:8px;
+}
+ul{
+	list-style-type:none;
+	margin:4px;
+	padding:0px;
+}
+li{
+	margin:4px;
+	padding:4px
+}
+li blockquote{
+	padding: 4px 8px;
+	border-left:8px solid #ddd
+}
+.title{
+	font-weight:bold;
+	font-size:1.2em
+}
+
+.sqlPager{
+	width:100%
+}
+.sqlPager td{
+	padding:5px;
+	margin:0px;
+	border-bottom:1px dashed #ccc
+}
+.sqlPager td.colHeader{
+	background-color:#ccc
+}
+.sqlPager tr.selected{
+	background-color:pink
+}
+.area{
+	float:left;
+	margin:8px 1vw;
+	width:29vw;
+}
+.userFeedback{
+	margin:6px 24px;
+	font-size:1.4em;
+	color:red
+}
+@media (max-width: 1279px){
+	.area{ width:44vw}
+}
+@media (max-width: 959px){
+	.area{ width:90vw}
+}

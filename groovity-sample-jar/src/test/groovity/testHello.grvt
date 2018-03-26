@@ -1,0 +1,11 @@
+static conf=[
+	'groovity.port':int.class
+]
+
+def baseUrl = "http://localhost:${conf['groovity.port']}"
+
+r1 = http(url:"${baseUrl}/hello?name=Tester").greeting
+assert r1 == 'Hello Tester'
+
+r2 = http(url:"${baseUrl}/goodbye?name=Cruel+World").greeting
+assert r2 == 'Goodbye Cruel World'

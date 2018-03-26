@@ -1,0 +1,77 @@
+/*******************************************************************************
+ * © 2018 Disney | ABC Television Group
+ *
+ * Licensed under the Apache License, Version 2.0 (the "Apache License")
+ * with the following modification; you may not use this file except in
+ * compliance with the Apache License and the following modification to it:
+ * Section 6. Trademarks. is deleted and replaced with:
+ *
+ * 6. Trademarks. This License does not grant permission to use the trade
+ *     names, trademarks, service marks, or product names of the Licensor
+ *     and its affiliates, except as required to comply with Section 4(c) of
+ *     the License and to reproduce the content of the NOTICE file.
+ *
+ * You may obtain a copy of the Apache License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the Apache License with the above modification is
+ * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the Apache License for the specific
+ * language governing permissions and limitations under the Apache License.
+ *******************************************************************************/
+load '/data/factory'
+
+//http(method:'DELETE',url:'http://localhost:9200/unit-test-shapes'){handler{}}
+
+def get(factory,type,key){
+	factory.invalidate(type,key)
+	factory(type,key)
+}
+
+def dataset = [
+	[ color: 'green', shape: 'circle', width:17],
+	[ color: 'red', shape: 'circle', width: 16],
+	[ color: 'purple', shape: 'circle', width: 14],
+	[ color: 'green', shape: 'square', width :4],
+	[ color: 'red', shape: 'triangle', width:5],
+	[ color: 'purple', shape: 'square', width: 13] 
+]
+
+def dataObjects = dataset.collect{
+	def obj = factory('elasticsearch')
+	obj._index = 'unit-test-shapes'
+	obj._type = 'shape'
+	obj.putAll(it)
+	obj.store()
+	factory.invalidate(obj.getPointer())
+	factory(obj.getPointer())
+}
+
+def wideOnes = get(factory,'elasticsearch','unit-test-shapes/shape/_search?q=width:>10')
+
+assert wideOnes.size() == 4
+
+def narrowOnes = get(factory,'elasticsearch','unit-test-shapes/shape/_search?q=width:<10')
+
+assert narrowOnes.size() == 2
+
+def circleCount = get(factory,'elasticsearch','unit-test-shapes/shape/_count?q=shape:circle')
+
+assert circleCount == 3
+
+dataObjects.each{
+	factory.invalidate(it.getPointer())
+	it.put('stamp',[type:'approval',signature:'Benjamin'])
+	it.store()
+}
+
+def approved = get(factory,'elasticsearch','unit-test-shapes/shape/_count?q=stamp.type:approval')
+assert approved == 6
+
+dataObjects.each{
+	it.delete()
+}
+
+assert get(factory,'elasticsearch','unit-test-shapes/shape/_count?q=stamp.type:approval') == 0

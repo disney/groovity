@@ -1,0 +1,6 @@
+com.disney.uriparcel.value.PropertiesValueHandler
+com.disney.uriparcel.value.DocumentValueHandler
+com.disney.uriparcel.value.KeyStoreValueHandler
+com.disney.uriparcel.value.SerializedValueHandler
+com.disney.uriparcel.value.StringValueHandler
+com.disney.uriparcel.value.ByteArrayValueHandler

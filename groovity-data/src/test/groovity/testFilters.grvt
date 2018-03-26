@@ -1,0 +1,32 @@
+load '/data/factory'
+
+def story = factory('story','20')
+
+def fieldFilter = ModelFilter.custom{ k, v, c ->
+	switch(k){
+		case ['name','byline','authors']:
+			c(k,v)
+			break
+	}
+}
+def bylineFilter = ModelFilter.transform('byline'){ it.toString() }
+def authorFilter = ModelFilter.transform('authors'){ factory('author',it).name }
+def twitterFilter = ModelFilter.transform('byline'){ it.toString().replaceAll(~/ \(@[^)]+\)/,'') }
+
+def smap1 = story.map(fieldFilter)
+
+assert smap1.authors == ['1','2']
+
+assert smap1.pointer == null
+
+def smap2 = story.map(fieldFilter, authorFilter)
+
+assert smap2.authors == ['Jim Beam', 'Jimi Hendrix']
+
+def smap2a = story.map([fieldFilter, authorFilter])
+
+assert Model.mapObject(smap2a, bylineFilter) == Model.mapObject(smap2, bylineFilter)
+
+def smap3 = story.map(fieldFilter, authorFilter, twitterFilter)
+
+assert smap3.byline == "By Jim Beam, Jimi Hendrix"

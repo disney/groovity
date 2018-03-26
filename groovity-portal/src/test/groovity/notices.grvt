@@ -1,0 +1,76 @@
+/*******************************************************************************
+ * © 2018 Disney | ABC Television Group
+ *
+ * Licensed under the Apache License, Version 2.0 (the "Apache License")
+ * with the following modification; you may not use this file except in
+ * compliance with the Apache License and the following modification to it:
+ * Section 6. Trademarks. is deleted and replaced with:
+ *
+ * 6. Trademarks. This License does not grant permission to use the trade
+ *     names, trademarks, service marks, or product names of the Licensor
+ *     and its affiliates, except as required to comply with Section 4(c) of
+ *     the License and to reproduce the content of the NOTICE file.
+ *
+ * You may obtain a copy of the Apache License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the Apache License with the above modification is
+ * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the Apache License for the specific
+ * language governing permissions and limitations under the Apache License.
+ *******************************************************************************/
+@Field static portal = [
+	path:'/test/notices',
+	title:"Send Notice",
+	roles:["auth"]
+];
+
+@Field static args = [
+	f:null,
+	personId:0,
+	message:null,
+	link:null,
+	sender:null
+]
+
+load '/data/factory'
+
+if(!binding.variables.request){
+	//this script is meant to process manual web requests in a test context, as a unit test it is no-op
+	return;
+}
+
+if(request.method=='POST' && f){
+	try{
+	switch(f){
+			//direct message
+			case 'dm':
+				def notice = factory('notice').putAll(message:message,link:link,sender:sender)
+				notice.store()
+				notice.send(personId)
+				break;
+	}
+	}
+	catch(Exception e){
+		e.printStackTrace();
+	}
+}
+<~
+<g:portal>
+<h2>Notices</h2>
+
+Send direct message
+<form method="POST">
+	<input type="hidden" name="f" value="dm"/>
+	Person <input type="text" name="personId" />
+	Message <input type="text" name="message" />
+	Link <input type="text" name="link" />
+	From <input type="text" name="sender" value="${request.session.getAttribute('userId')}"/>
+	<input type="submit" />
+</form>
+
+
+</g:portal>
+~>

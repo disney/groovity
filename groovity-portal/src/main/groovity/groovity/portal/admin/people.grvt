@@ -1,0 +1,135 @@
+/*******************************************************************************
+ * © 2018 Disney | ABC Television Group
+ *
+ * Licensed under the Apache License, Version 2.0 (the "Apache License")
+ * with the following modification; you may not use this file except in
+ * compliance with the Apache License and the following modification to it:
+ * Section 6. Trademarks. is deleted and replaced with:
+ *
+ * 6. Trademarks. This License does not grant permission to use the trade
+ *     names, trademarks, service marks, or product names of the Licensor
+ *     and its affiliates, except as required to comply with Section 4(c) of
+ *     the License and to reproduce the content of the NOTICE file.
+ *
+ * You may obtain a copy of the Apache License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the Apache License with the above modification is
+ * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the Apache License for the specific
+ * language governing permissions and limitations under the Apache License.
+ *******************************************************************************/
+@Field static conf=[
+	PORTAL_AUTH_REALM:'Portal'
+]
+
+@Field static portal = [
+	path:"/admin/people",
+	title:"People",
+	order:2,
+	roles:["auth","admin"]
+];
+
+@Field static args = [
+	people_id : 0l,
+	userName : null,
+	fullName : null,
+	nickName : null,
+	digest : null,
+	suspended : false
+]
+
+@Field sql = load('/groovity/sql').sql('portalDB')
+load '/data/factory'
+
+hasAdminRole = roles.contains('admin');
+selectedPerson = null;
+formError = null;
+formMessage = null;
+if(request.method=='POST'){
+	if(hasAdminRole && userName){
+	try{
+		def person = people_id ? factory('person',"${people_id}") : factory('person');
+		person.putAll([userName:userName,fullName:fullName,nickName:nickName,suspended:suspended])
+		if(digest){
+			person.put('digest',digest)
+		}
+		person.store()
+		formMessage = "Person updated"
+	}
+	catch(Exception e){
+		formError = e;
+		log(error:"Error in form processing",thrown:e);
+	}
+	}
+}
+if(people_id){
+	selectedPerson = factory('person',"${people_id}");
+}
+
+<~
+<g:portal>
+<script src="/static/groovity/portal/md5.js"></script>
+<script>
+	function doDigest(){
+		var form = document.forms['userForm'];
+		var pw = form.elements[3].value;
+		if(pw.length > 0){
+			form.digest.value = CryptoJS.MD5(form.userName.value+":${conf.PORTAL_AUTH_REALM}:"+pw);
+		}
+		form.elements[3].value="";
+	}
+</script>
+<g:if test="${roles.contains('admin')}">
+<div class="portlet">
+<form name="userForm" method="POST" onSubmit="doDigest();">
+	<div class="title">
+	<g:if test="${selectedPerson}">
+		<strong>Update user record</strong>
+	</g:if>
+	<g:else>
+		<strong>Create new user</strong>
+	</g:else>
+	</div>
+	<div style="padding:6px 0px 6px 12px">
+		<div>
+		Username
+		<input type="text" name="userName" value="${selectedPerson?.userName}" />
+		</div>
+		<div>
+		Full Name
+		<input type="text" name="fullName" value="${selectedPerson?.fullName}" />
+		</div>	
+		<div>
+		Nickname
+		<input type="text" name="nickName" value="${selectedPerson?.nickName}" />
+		</div>
+		<div>
+		Password
+		<input type="password" value="" onchange="document.forms[0].password.value=this.value" autocomplete="off"/>
+		</div>
+		<div>
+		Suspended
+		<input type="checkbox" name="suspended" value="true"
+			<g:if test="${selectedPerson?.suspended}">
+			checked="checked"
+			</g:if>
+		/>
+		</div>
+	</div>
+	<g:if test="${selectedPerson}">
+		<input type="button" value="Close user" onclick="document.location='people'"/>
+	</g:if>
+	<input type="hidden" name="digest" value="" />
+	<input type="submit" value="${selectedPerson  ? 'Update user' : 'Create user'}"/>
+</form>
+</div>
+</g:if>
+<div class="portlet wide">
+<g:sqlTable id="people" title="All Users" table="person" cols="[userName:'Username',fullName:'Full Name',nickName:'Nickname',created:'Joined',lastLogin:'Last Login',suspended:'Suspended',id:null]"  sortCol="created" sortOrder="DESC" sql="${sql}"/>
+</div>
+
+</g:portal>
+~>

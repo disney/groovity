@@ -1,0 +1,346 @@
+/*******************************************************************************
+ * © 2018 Disney | ABC Television Group
+ *
+ * Licensed under the Apache License, Version 2.0 (the "Apache License")
+ * with the following modification; you may not use this file except in
+ * compliance with the Apache License and the following modification to it:
+ * Section 6. Trademarks. is deleted and replaced with:
+ *
+ * 6. Trademarks. This License does not grant permission to use the trade
+ *     names, trademarks, service marks, or product names of the Licensor
+ *     and its affiliates, except as required to comply with Section 4(c) of
+ *     the License and to reproduce the content of the NOTICE file.
+ *
+ * You may obtain a copy of the Apache License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the Apache License with the above modification is
+ * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the Apache License for the specific
+ * language governing permissions and limitations under the Apache License.
+ *******************************************************************************/
+static args = [
+	selectedHosts:new String[0],
+	doc:null
+]
+
+load '/groovity/servlet/admin/lib/compilerSupport'
+
+@Field clusterClient = run('/groovity/servlet/admin/lib/clusterClient')
+
+members = new ArrayList(clusterClient.clusterProvider.members)
+
+if(!selectedHosts){
+	selectedHosts = members.collect{ it.uuid.toString() }
+}
+
+docs = compilerSupport.getDocs([members.find{ selectedHosts.contains(it.uuid.toString()) }]).values().find{ it != null};
+
+if(!doc){
+	if(docs.libraries?.size()>0){
+		doc = "lib_${docs.libraries.first().name}";
+	}
+	else{
+		doc = "tag_${docs.tags.first().name}";
+	}
+}
+boolean isLibrary = false, isTrait = false, isTag = false;
+
+if(doc.startsWith("lib_")){
+	selectedDoc = docs.libraries.find{ it.name==doc.substring(4) };
+	isLibrary = true;
+}
+else if(doc.startsWith("trait_")){
+	selectedDoc = docs.traits.find{ it.name==doc.substring(6) };
+	isTrait = true;
+}
+else{
+	selectedDoc = docs.tags.find{ it.name==doc.substring(4) };
+	isTag = true;
+}
+
+def formatType(type){
+	if(type.startsWith('java.lang.') || type.startsWith('java.util.')){
+		return type.substring(10);
+	}
+	return type;
+}
+
+def rootFolder = [:]
+docs.libraries.each{
+	def curFolder = rootFolder;
+	def path = it.path;
+	int si;
+	while((si=path.indexOf("/",1)) > 0){
+		def name = path.substring(1,si);
+		path=path.substring(si);
+		def folder = curFolder[name];
+		if(!folder){
+			curFolder[name] = folder = [:]
+		}
+		curFolder=folder
+	}
+	curFolder[path.substring(1)]=it
+}
+def pageUrl = request.requestURI + (request.queryString ? '?' + request.queryString : '');
+curFolder = rootFolder
+libraryRecursion = { breakFolder, depth -> <~
+	<g:each var="entry" in="${curFolder}">
+		<g:if test="${breakFolder}">
+			<div style="padding:2px 0px 2px 6px;">
+		</g:if>
+		<g:if test="${entry.key.endsWith('.grvt')}">
+			<g:set var="docName" value="lib_${entry.value.name}" />
+			<g:uri var="docLink" base="${pageUrl}">
+				<g:param name="doc" value="${docName}" replace="true" />
+			</g:uri><a href="${docLink}" ${docName == doc ? 'class="selectedDoc"' : ''}>${entry.key}</a>
+		</g:if>
+		<g:else>
+			<g:if test="${breakFolder && depth}">
+			<span style="color:#ccc"><g:each var="d" in ="${0..depth-1}">.</g:each></span>
+			</g:if>
+			<g:set var="curFolder" value="${entry.value}" 
+			/>${entry.key}/${libraryRecursion(entry.value.size() > 1, depth+1)}
+		</g:else>
+		<g:if test="${breakFolder}">
+			</div>
+		</g:if>
+	</g:each>
+~> }
+
+classTemplate = { cl ->
+<~
+<div style="padding:6px;margin:8px;border:1px dashed #999">
+	<span style="font-size:1.38em;font-weight:bold">${cl.name}</span>
+	<g:if test="${cl.extends}">
+		<em>extends</em> ${cl.extends}
+	</g:if>
+	<g:if test="${cl.implements}">
+		<em>implements</em> ${cl.implements.join(', ')}
+	</g:if>
+	<g:if test="${cl.properties!=null}">
+		<div style="padding:6px 0px 0px 6px">
+		<strong>Properties</strong>
+			<g:each var="prop" in="${cl.properties}">
+				<div style="padding:4px 0px 2px 6px"><g:write value="${formatType(prop.type)}" escape="html"/> <b>${prop.name}</b></div>
+			</g:each>
+		</div>
+	</g:if>
+	<g:if test="${cl.methods!=null && cl.methods.size() > 0}">
+		<div style="padding:6px 0px 0px 6px">
+		<strong>Methods</strong>
+			<g:each var="method" in="${cl.methods}">
+				<div style="padding:4px 0px 2px 6px">
+				<g:write value="${formatType(method.returns)}" escape="html"/>
+				<span style="font-size:14px>"><b>${method.name}</b>(
+				<g:if test="${method.parameters!=null}">
+					<code>
+					<g:each var="arg" in="${method.parameters}" pos="pos"><g:if test="${pos>0}">, </g:if><g:write value="${formatType(arg.type)}" escape="html"/> ${arg.name}</g:each>
+					</code>
+				</g:if>)
+				</span>
+				<g:if test="${method.info!=null}">
+					<div style="padding:4px 0px 4px 16px;font-size:12px">
+						${method.info}
+						<g:if test="${method.parameters!=null}">
+							<g:each var="arg" in="${method.parameters}">
+								<g:if test="${arg.info!=null}">
+									<div style="margin:4px 0px 4px 16px">
+										<code>${arg.name}</code>:
+										${arg.info}
+										<g:if test="${arg.nullable == true}">
+											(null OK)
+										</g:if>
+									</div>
+								</g:if>
+							</g:each>
+						 </g:if>
+					</div>
+				</g:if>
+				</div>
+			</g:each>
+		</div>
+	</g:if>
+</div>
+~>
+}
+
+<~
+<div style="width:200px;float:left">
+	<form name="docsForm" id="docsForm" action="docs" method="GET">
+	<strong>Hosts</strong>
+	<div style="padding:4px">
+		<select name="selectedHosts" multiple="multiple" onchange="document.docsForm.submit()">
+			<g:each var="host" in="${members}">
+				<option value="${host.uuid}"
+				<g:if test="${selectedHosts.contains(host.uuid.toString())}">
+					selected="selected"
+				</g:if>
+				>${host.address.hostName}:${host.port}</option>
+			</g:each>
+		</select>
+	</div>
+	<strong style="margin-bottom:8px">Libraries</strong>
+	<div style="margin-bottom:8px">
+		${libraryRecursion(true,0)}
+	</div>
+	<strong style="margin-bottom:8px">Custom Tags</strong>
+	<div style="margin-bottom:8px">
+		<g:each var="tag" in="${docs.tags.findAll{ it.core==false }}">
+			<div style="padding:4px">
+				<g:set var="tagName" value="tag_${tag.name}"/>
+				<g:uri var="docLink" base="${pageUrl}">
+					<g:param name="doc" value="${tagName}" replace="true" />
+				</g:uri>
+				<a href="${docLink}"
+					<g:if test="${tagName == doc}">
+						class="selectedDoc"
+					</g:if>
+				>${tag.name}</a>
+			</div>
+		</g:each>
+	</div>
+	<strong style="margin-bottom:8px">Core Tags</strong>
+	<div style="margin-bottom:8px">
+		<g:each var="tag" in="${docs.tags.findAll{ it.core }}">
+			<div style="padding:4px">
+				<g:set var="tagName" value="tag_${tag.name}"/>
+				<g:uri var="docLink" base="${pageUrl}">
+					<g:param name="doc" value="${tagName}" replace="true" />
+				</g:uri>
+				<a href="${docLink}"
+					<g:if test="${tagName == doc}">
+						class="selectedDoc"
+					</g:if>
+				>${tag.name}</a>
+			</div>
+		</g:each>
+	</div>
+	<strong style="margin-bottom:8px">Traits</strong>
+	<div style="margin-bottom:8px">
+		<g:each var="trait" in="${docs.traits}">
+			<div style="padding:4px">
+				<g:set var="traitName" value="trait_${trait.name}"/>
+				<g:uri var="docLink" base="${pageUrl}">
+					<g:param name="doc" value="${traitName}" replace="true" />
+				</g:uri>
+				<a href="${docLink}"
+					<g:if test="${traitName == doc}">
+						class="selectedDoc"
+					</g:if>
+				>${trait.name}</a>
+			</div>
+		</g:each>
+	</div>
+	</form>
+</div>
+
+<div style="margin-left:200px;position:relative">
+	<strong style="font-size:1.38em">${selectedDoc.path}</strong>
+	<g:if test="${isLibrary}">
+		<div style="padding:8px 12px">
+			load('<strong>${selectedDoc.path.substring(0,selectedDoc.path.indexOf('.grvt'))}</strong>')
+		</div>
+		<strong>Functions</strong>
+		<table style="margin:4px">
+			<g:each var="fn" in="${selectedDoc.functions}">
+				<tr style="border-bottom: 1px dashed #999;margin:10px;padding:4px">
+					<td valign="top" style="padding-right:6px">
+						<span style="font-size:0.9em">
+							<g:write value="${formatType(fn.returns)}" escape="html"/>
+						</span>
+					</td>
+					<td>
+					<span style="font-size:14px>"><b>${fn.name}</b>(
+					<g:if test="${fn.args !=null}">
+						<code>
+						<g:each var="arg" in="${fn.args}" pos="pos"><g:if test="${pos>0}">, </g:if><g:write value="${formatType(arg.type)}" escape="html"/> ${arg.name}</g:each>
+						</code>
+					</g:if>
+					)
+					</span>
+					<br/>
+				<div style="padding:4px 0px 4px 16px;font-size:1em">
+					${fn.info}
+					<g:if test="${fn.args !=null}">
+						<g:each var="arg" in="${fn.args}">
+							<g:if test="${arg.info != null && arg.info!=''}">
+								<div style="margin:4px 0px 4px 16px">
+									<code>${arg.name}</code>:
+									${arg.info}
+									<g:if test="${arg.nullable == true}">
+										(null OK)
+									</g:if>
+								</div>
+							</g:if>
+						</g:each>
+					</g:if>
+				</div>
+				</td>
+				</tr>
+			</g:each>
+		</table>
+		<g:if test="${selectedDoc.classes!=null && selectedDoc.classes.size() > 0}">
+			<div style="padding:0 10px 5px 0;">
+				<strong>Classes</strong>	
+					<g:each var="cl" in="${selectedDoc.classes}">
+						${classTemplate(cl)}
+					</g:each>
+				  </div>
+			</div>
+		</g:if>
+	</g:if>
+	<g:elseif test="${isTrait}">
+		<div style="padding:0 10px 5px 0;">
+			<strong>trait ${selectedDoc.name}</strong>	
+			${classTemplate(selectedDoc)}
+		</div>
+	</g:elseif>
+	<g:else>
+		<div style="padding:10px">
+            ${selectedDoc.info}
+        </div>
+        <div style="position:relative;border-left:8px solid #ddd;padding:8px 16px;margin-bottom:20px;margin-left:20px;overflow:auto">
+			<div style="float:left;font-weight:bold;font-size:1.32em">${selectedDoc.name}(</div>
+			<div style="float:left;font-size:1.32em;width:75%">
+				<g:each var="attr" in="${selectedDoc.attrs}">
+					<div style="clear:left;float:left;padding:0px 8px 3px 8px">
+						<g:if test="${attr.required == true}">
+							<span style="color:#CC3333;font-weight:bold">${attr.name}</span>
+						</g:if>
+						<g:else>
+							<span style="font-weight:bold">${attr.name}</span>
+						</g:else> 
+						: <span style="font-size:0.75em">${attr.info}</span>,
+					</div>
+				</g:each>
+				<div style="clear:left;float:left;padding:0px 8px 3px 8px;font-weight:bold;">
+				<g:if test="${selectedDoc.body != null && selectedDoc.body != ''}">
+					{
+				</g:if>
+				<g:else>
+					{});
+				</g:else>
+				</div>
+				<g:if test="${selectedDoc.body != null && selectedDoc.body != ''}">
+					<div>
+						<div style="padding:8px 0px 8px 20px;font-size:0.75em;width:75%;clear:left;">// ${selectedDoc.body}</div>
+						<div style="font-weight:bold;padding:0px 8px 3px 8px;">});</div>
+					</div>
+				</g:if>
+			</div>	
+			<g:if test="${selectedDoc.returns != null && selectedDoc.returns != ''}">
+				<div style="float:left;width:75%;margin-top:8px;font-size:1em">
+					<strong style="margin-right:8px">returns</strong> ${selectedDoc.returns}
+				</div>
+			</g:if>
+		</div>
+    	<div class="title_b" style="padding-left:10px;">Sample</div> 
+        <pre style="margin-left:20px;line-height:20px">
+<g:write value="${selectedDoc.sample}" escape="xml"/>
+         </pre>
+	</g:else>
+</div>
+~>

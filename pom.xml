@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>com.disney.groovity</groupId>
+	<artifactId>groovity-parent</artifactId>
+	<packaging>pom</packaging>
+	<version>2.0.0-rc.16-SNAPSHOT</version>
+	<name>Groovity parent project</name>
+	<description>
+		Groovity is a JVM-based scripting language and runtime that can be
+		used to develop everything from simple utility scripts to modular
+		Servlet 3.0 applications.
+	</description>
+	<url>https://github.com/disney/groovity</url>
+	<licenses>
+		<license>
+			<name>The Apache License, Version 2.0</name>
+			<url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+			<distribution>repo</distribution>
+			<comments>Primary project license</comments>
+		</license>
+		<license>
+			<name>Common Development and Distribution License</name>
+			<url>https://oss.oracle.com/licenses/CDDL-1.1</url>
+			<distribution>repo</distribution>
+			<comments>License for code borrowed from JAX-RS and Jersey</comments>
+		</license>
+		<license>
+			<name>The MIT License</name>
+			<url>https://opensource.org/licenses/mit-license.php</url>
+			<distribution>repo</distribution>
+			<comments>License for included jQuery and MimeParse utilities</comments>
+		</license>
+		<license>
+			<name>The 3-Clause BSD License</name>
+			<url>https://opensource.org/licenses/BSD-3-Clause</url>
+			<distribution>repo</distribution>
+			<comments>License for included CryptoJS utility</comments>
+		</license>
+	</licenses>
+	<properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<groovy.version>2.4.13</groovy.version>
+		<spring.version>4.3.9.RELEASE</spring.version>
+		<jetty.version>9.4.7.v20170914</jetty.version>
+		<http.client.version>4.5.3</http.client.version>
+		<bouncycastle.version>1.58</bouncycastle.version>
+		<servlet.api.version>3.1.0</servlet.api.version>
+	</properties>
+	<modules>
+		<module>uri-parcel</module>
+		<module>http-auth</module>
+		<module>groovity-core</module>
+		<module>groovity-servlet</module>
+		<module>groovity-error-page</module>
+		<module>groovity-servlet-admin</module>
+		<module>groovity-servlet-container</module>
+		<module>groovity-jar-runner</module>
+		<module>groovity-sample-jar</module>
+		<module>groovity-maven-plugin</module>
+		<module>groovity-integration-tests</module>
+		<module>groovity-hello-world</module>
+		<module>groovity-events</module>
+		<module>groovity-crypto</module>
+		<module>groovity-data</module>
+		<module>groovity-sql</module>
+		<module>groovity-standalone</module>
+		<module>groovity-sample-webapp</module>
+		<module>groovity-portal</module>
+		<module>groovity-sample-portal</module>
+		<module>groovity-elasticsearch</module>
+	</modules>
+	<dependencies>
+		<dependency>
+			<groupId>junit</groupId>
+			<artifactId>junit</artifactId>
+			<version>4.12</version>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+	<build>
+		<pluginManagement>
+			<plugins>
+				<plugin>
+					<artifactId>maven-scm-plugin</artifactId>
+					<version>1.9.5</version>
+					<configuration>
+						<tag>${project.artifactId}-${project.version}</tag>
+					</configuration>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-release-plugin</artifactId>
+					<version>2.5.3</version>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-compiler-plugin</artifactId>
+					<version>3.6.0</version>
+					<configuration>
+						<source>1.8</source>
+						<target>1.8</target>
+					</configuration>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-javadoc-plugin</artifactId>
+					<version>2.10.2</version>
+					<configuration>
+					</configuration>
+					<executions>
+						<execution>
+							<id>aggregate</id>
+							<goals>
+								<goal>aggregate</goal>
+							</goals>
+							<phase>site</phase>
+							<configuration>
+
+							</configuration>
+						</execution>
+					</executions>
+				</plugin>
+			</plugins>
+		</pluginManagement>
+	</build>
+	<scm>
+		<connection>scm:git:ssh://git@github.com:disney/groovity.git</connection>
+		<tag>HEAD</tag>
+	</scm>
+</project>

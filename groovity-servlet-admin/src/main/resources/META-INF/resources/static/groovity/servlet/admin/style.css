@@ -1,0 +1,58 @@
+html, body {
+	padding:0px;
+	margin:0px;
+	font-family: Arial, Montserrat, sans-serif;
+}
+.groovity_header{
+	color:#fff;
+	background:#003366;
+	background:linear-gradient(#003366, #000066);
+}
+.groovity-logo{
+	float:left;
+	width:174px;
+	height:50px;
+	margin:5px;
+	background-image:url('groovity-logo.png')
+}
+.groovity_body{
+	padding:12px;
+}
+nav {
+	float:left;
+	padding-top:19px;
+}
+nav a{
+	display:block;
+	margin:0px 8px;
+	padding:12px;
+	float:left;
+	text-decoration:none;
+}
+nav a:link, a:visited{
+	color:#999;
+}
+nav a:active{
+	color:red;
+}
+nav a:hover{
+	color:yellow;
+}
+nav a.currentTab{
+	background:white;
+	color:black;
+}
+.percentBar{ margin:4px 0px 8px 0px }
+.percentBar a, .percentBar a:link, .percentBar a:hover, .percentBar a:active, .percentBar a:visited,
+#docsForm a, #docsForm a:link, #docsForm a:hover, #docsForm a:active, #docsForm a:visited{
+	text-decoration: none;
+	color: #000;				
+}		
+.percentBar a:active, .percentBar a:hover,
+#docsForm a:active, #docsForm a:hover{
+	color: #2f538f;
+}
+.percentBar a.selectedStatKey,
+#docsForm a.selectedDoc{
+	color:#aa8866
+}

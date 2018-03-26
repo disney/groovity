@@ -1,0 +1,233 @@
+/*******************************************************************************
+ * © 2018 Disney | ABC Television Group
+ *
+ * Licensed under the Apache License, Version 2.0 (the "Apache License")
+ * with the following modification; you may not use this file except in
+ * compliance with the Apache License and the following modification to it:
+ * Section 6. Trademarks. is deleted and replaced with:
+ *
+ * 6. Trademarks. This License does not grant permission to use the trade
+ *     names, trademarks, service marks, or product names of the Licensor
+ *     and its affiliates, except as required to comply with Section 4(c) of
+ *     the License and to reproduce the content of the NOTICE file.
+ *
+ * You may obtain a copy of the Apache License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the Apache License with the above modification is
+ * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the Apache License for the specific
+ * language governing permissions and limitations under the Apache License.
+ *******************************************************************************/
+import javax.xml.bind.annotation.*
+
+class Example1{
+ 	String foo
+ 	int bar
+ 	List xyz
+ 	Map joe
+}
+
+def parsed = parse(to:Example1.class, value: '''
+<example1><bar>123</bar><foo>al</foo><joe><a>1</a><b>2</b></joe><xyz>3</xyz><xyz>4</xyz></example1>
+''')
+
+assert parsed.foo == 'al'
+assert parsed.bar == 123
+assert parsed.joe == [a:"1",b:"2"]
+assert parsed.xyz == ['3','4']
+
+class Example2{
+ 	String foo
+ 	int bar
+ 	List<Integer> xyz
+ 	Map<String,Integer> joe
+}
+
+ parsed = parse(to:Example2.class, value: '''
+<example1><bar>123</bar><foo>al</foo><joe><a>1</a><b>2</b></joe><xyz>3</xyz><xyz>4</xyz></example1>
+''')
+
+assert parsed.foo == 'al'
+assert parsed.bar == 123
+assert parsed.joe == [a:1,b:2]
+assert parsed.xyz == [3,4]
+
+class Example3{
+	Example3 nested
+	String name
+}
+
+parsed = new Example3()
+parsed.name='foo'
+parse(to:parsed, value:'''
+<example3><nested><name>bar</name></nested></example3>
+''')
+
+assert parsed.name == 'foo'
+assert parsed.nested.name == 'bar'
+assert parsed.nested instanceof Example3
+assert parsed.nested.nested == null
+
+@XmlRootElement
+@XmlAccessorType(XmlAccessType.FIELD)
+class Example4{
+	String[] tops 
+	@XmlElementWrapper
+	@XmlElement(name="nested")
+	String[] nester
+	@XmlElementWrapper(name="items")
+	int[] item 
+	@XmlAttribute(name='keys')
+	String[] keywords
+	@XmlList
+	String[] letters
+	Example5 bin
+}
+
+@XmlAccessorType(XmlAccessType.FIELD)
+class Example5{
+	@XmlValue
+	String[] vals
+}
+
+parsed = parse(to:Example4.class, value:'''
+<example4 keys="foo bar">
+	<bin>&lt; &gt; &amp; &quot; &apos;</bin>
+	<items><item>1</item><item>2</item><item>3</item></items>
+	<letters>a b c</letters>
+	<nester><nested>x</nested><nested>y</nested><nested>z</nested></nester>
+	<tops>a</tops><tops>b</tops><tops>c</tops>
+</example4>
+''')
+assert parsed.tops == ['a','b','c'] as String[]
+assert parsed.nester ==  ['x','y','z'] as String[]
+assert parsed.item == [1,2,3] as int[]
+assert parsed.keywords == ['foo','bar'] as String[]
+assert parsed.letters == ['a','b','c'] as String[]
+assert parsed.bin.vals ==  ['<','>','&','"',"'"] as String[]
+
+class Example6{
+	String[] tops 
+	String[] nested
+	int[] item 
+	String keywords
+	String letters
+	Example7 bin
+}
+
+class Example7{
+	String[] vals 
+}
+
+parsed = parse(to:Example6.class, value:'''
+<example4 keywords="foo bar">
+	<bin><vals>&lt;</vals><vals>&gt;</vals><vals>&amp;</vals><vals>&quot;</vals><vals>&apos;</vals></bin>
+	<item>1</item><item>2</item><item>3</item>
+	<letters>a b c</letters>
+	<nested>x</nested><nested>y</nested><nested>z</nested>
+	<tops>a</tops><tops>b</tops><tops>c</tops>
+</example4>
+''')
+assert parsed.tops == ['a','b','c'] as String[]
+assert parsed.nested ==  ['x','y','z'] as String[]
+assert parsed.item == [1,2,3] as int[]
+assert parsed.keywords == "foo bar"
+assert parsed.letters == "a b c"
+assert parsed.bin.vals ==  ['<','>','&','"',"'"] as String[]
+
+@Canonical
+class Example8 implements Model{
+	String[] tops
+	String[] nester
+	int[] item 
+	String[] keywords
+	String[] letters
+	Example9 bin
+	
+	boolean put(String k, Object v){
+		if(k == 'keys'){
+			this.keywords = v.split(" ")
+			return true
+		}
+		Model.put(this,k,v)
+	}
+	
+	def setItems(Map v){
+		item = v.item.collect{ it.toInteger() }
+	}
+	def setLetters(String v){
+		letters = v.split(" ")
+	}
+	def setLetters(String[] v){
+		letters = v
+	}
+	def setLetters(List<String> v){
+		letters = v as String[]
+	}
+	def setNester(Map v){
+		nester = v.nested
+	}
+	def setNester(String[] v){
+		nester = v
+	}
+	def setNester(List<String> v){
+		nester = v as String[]
+	}
+}
+@Canonical
+class Example9 implements Model{
+	String[] vals 
+	
+	boolean put(String k, Object v){
+		if(k==""){
+			vals = v.split(" ")
+		}
+		return Model.put(this,k,v)
+	}
+}
+
+parsed = parse(to:Example8.class, value:'''
+<example4 keys="foo bar">
+	<bin>&lt; &gt; &amp; &quot; &apos;</bin>
+	<items><item>1</item><item>2</item><item>3</item></items>
+	<letters>a b c</letters>
+	<nester><nested>x</nested><nested>y</nested><nested>z</nested></nester>
+	<tops>a</tops><tops>b</tops><tops>c</tops>
+</example4>
+''')
+assert parsed.tops == ['a','b','c'] as String[]
+assert parsed.nester ==  ['x','y','z'] as String[]
+assert parsed.item == [1,2,3] as int[]
+assert parsed.keywords == ['foo','bar'] as String[]
+assert parsed.letters == ['a','b','c'] as String[]
+assert parsed.bin.vals ==  ['<','>','&','"',"'"] as String[]
+
+assert parsed == parsed.copy()
+
+parsedM = parsed.map()
+parsedRT = parse(value:parsedM,to:Example8.class)
+assert parsedM instanceof Map
+assert parsedRT instanceof Example8
+
+assert parsedM == parsedRT.map()
+assert new Example8().putAll(parsedM) == parsedRT
+
+parsed = parse(value:'''
+<example4 keywords="foo bar">
+	<bin><vals>&lt;</vals><vals>&gt;</vals><vals>&amp;</vals><vals>&quot;</vals><vals>&apos;</vals></bin>
+	<item>1</item><item>2</item><item>3</item>
+	<letters>a b c</letters>
+	<nested>x</nested><nested>y</nested><nested>z</nested>
+	<tops>a</tops><tops>b</tops><tops>c</tops>
+</example4>
+''')
+assert parsed instanceof Map
+assert parsed.tops == ['a','b','c'] as String[]
+assert parsed.nested ==  ['x','y','z'] as String[]
+assert parsed.item == ['1','2','3'] as String[]
+assert parsed.keywords == "foo bar"
+assert parsed.letters == "a b c"
+assert parsed.bin.vals ==  ['<','>','&','"',"'"] as String[]

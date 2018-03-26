@@ -1,0 +1,77 @@
+/*******************************************************************************
+ * © 2018 Disney | ABC Television Group
+ *
+ * Licensed under the Apache License, Version 2.0 (the "Apache License")
+ * with the following modification; you may not use this file except in
+ * compliance with the Apache License and the following modification to it:
+ * Section 6. Trademarks. is deleted and replaced with:
+ *
+ * 6. Trademarks. This License does not grant permission to use the trade
+ *     names, trademarks, service marks, or product names of the Licensor
+ *     and its affiliates, except as required to comply with Section 4(c) of
+ *     the License and to reproduce the content of the NOTICE file.
+ *
+ * You may obtain a copy of the Apache License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the Apache License with the above modification is
+ * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the Apache License for the specific
+ * language governing permissions and limitations under the Apache License.
+ *******************************************************************************/
+/**
+ * Lazily acquire and cache Groovy SQL facades for data sources acquired
+ * from JNDI; can also be used to bind and unbind datasources when container
+ * management is not in use
+ * 
+ * Usage: load('/groovity/sql').sql(dataSourceName)
+ */ 
+import com.disney.groovity.sql.SqlLoader
+import groovy.sql.Sql
+import javax.sql.DataSource
+
+static SqlLoader sqlLoader = new SqlLoader(getClassLoader())
+
+@Function(info="produce a singleton Sql object for a given bound or named JNDI DataSource")
+public Sql sql(String name){
+	sqlLoader.sql(name)
+}
+@Function(info="bind a DataSource to a name, can be used to programatically access datasources instead of relying on a container")
+public void bind(String name, DataSource sqlDataSource){
+	sqlLoader.bind(name,sqlDataSource)
+}
+@Function(info="provide a set of initialization commands for a named datasource that may or may not yet be bound")
+public void init(String name, List<String> commands){
+	sqlLoader.init(name,commands)
+}
+@Function(info="provide an initialization commands for a named datasource that may or may not yet be bound")
+public void init(String name, String command){
+	sqlLoader.init(name,command)
+}
+@Function(info="provide a  list of closures to call back with a named datasource that may or may not yet be bound")
+public void call(String name, List<Closure> commands){
+	sqlLoader.call(name,commands)
+}
+@Function(info="provide a closure to call back with a named datasource that may or may not yet be bound")
+public void call(String name, Closure command){
+	sqlLoader.call(name,command)
+}
+@Function(info="Check whether we have access to a DataSource with the given name")
+public boolean isBound(String name){
+	return sqlLoader.isBound(name)
+}
+@Function(info="Unbind the given datasource, closing associated resources")
+public void unbind(String name, DataSource dataSource){
+	sqlLoader.unbind(name,dataSource)
+}
+@Function(info="Install a runtime groovity SQL configurator based on the given dataSource and table names")
+public void configurator(String dataSourceName,String tableName){
+	sqlLoader.configurator(dataSourceName,tableName)
+}
+
+//app lifecycle
+static destroy(){
+	sqlLoader.destroy()
+}

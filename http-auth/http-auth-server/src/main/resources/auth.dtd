@@ -1,0 +1,38 @@
+<!ELEMENT auth (basic|digest|signature)+>
+
+<!ELEMENT basic (realm,(passwords|passwordChecker)+,(acl|accessController)*) >
+<!ELEMENT digest (realm,(passwords|passwordDigester)+,(maxNonceAge|nonceSecret|domain|acl|accessController)*) >
+<!ELEMENT signature (realm,(keystore|keys)+,(drift|headers|acl|accessController)*) >
+
+<!ELEMENT realm (#PCDATA) >
+<!ELEMENT passwords (keyId,password)+ >
+
+<!ELEMENT keyId (#PCDATA) >
+<!ELEMENT password (#PCDATA) >
+
+<!ELEMENT passwordChecker EMPTY >
+<!ATTLIST passwordChecker class CDATA #REQUIRED>
+
+<!ELEMENT passwordDigester EMPTY >
+<!ATTLIST passwordDigester class CDATA #REQUIRED>
+
+<!ELEMENT accessController EMPTY >
+<!ATTLIST accessController class CDATA #REQUIRED>
+
+<!ELEMENT acl (keyId)+ >
+
+<!ELEMENT keystore (location,type,ttl,password) >
+<!ELEMENT location (#PCDATA) >
+<!ELEMENT type (#PCDATA) >
+<!ELEMENT ttl (#PCDATA) >
+
+<!ELEMENT keys (keyId,key)+ >
+<!ELEMENT key (#PCDATA) >
+<!ATTLIST key algorithm CDATA "hmac-sha256" >
+
+<!ELEMENT drift (#PCDATA) >
+<!ELEMENT headers (#PCDATA) >
+
+<!ELEMENT maxNonceAge (#PCDATA) >
+<!ELEMENT nonceSecret (#PCDATA) >
+<!ELEMENT domain (#PCDATA) >

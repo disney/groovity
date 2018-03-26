@@ -1,0 +1,76 @@
+/*******************************************************************************
+ * © 2018 Disney | ABC Television Group
+ *
+ * Licensed under the Apache License, Version 2.0 (the "Apache License")
+ * with the following modification; you may not use this file except in
+ * compliance with the Apache License and the following modification to it:
+ * Section 6. Trademarks. is deleted and replaced with:
+ *
+ * 6. Trademarks. This License does not grant permission to use the trade
+ *     names, trademarks, service marks, or product names of the Licensor
+ *     and its affiliates, except as required to comply with Section 4(c) of
+ *     the License and to reproduce the content of the NOTICE file.
+ *
+ * You may obtain a copy of the Apache License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the Apache License with the above modification is
+ * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the Apache License for the specific
+ * language governing permissions and limitations under the Apache License.
+ *******************************************************************************/
+import javax.crypto.spec.SecretKeySpec
+
+static conf=[
+	'groovity.servlet.admin.api.policy':'/groovity/servlet/admin/apiPolicy',
+	'groovity.cluster.keyId' : 'groovityCluster',
+	'groovity.cluster.corsOrigin' : '*',
+	'groovity.cluster.secret' : String.class,
+	'groovity.cluster.disableAuth' : false
+]
+
+static web = [
+	auth:[
+		type:"signature",
+		realm:"Groovity Servlet Admin API",
+		headers:["(request-target)","date", "host"],
+		keychain:{ keyId ->
+			if(conf['groovity.cluster.secret'] && keyId == conf['groovity.cluster.keyId']){
+				return new SecretKeySpec(conf['groovity.cluster.secret'].getBytes("UTF-8"), "HmacSHA256")
+			}
+			if(conf['groovity.cluster.disableAuth']){
+				return new SecretKeySpec('groovityInsecureSignature'.getBytes("UTF-8"), "HmacSHA256")
+			}
+		}
+	],
+	cors:[
+		origins:{ conf['groovity.cluster.corsOrigin'] },
+		headers:["Signature","X-Date"],
+		maxAge:300
+	]
+]
+
+//startup: validate configuration
+static init(){
+	if(conf['groovity.cluster.disableAuth']){
+		return;
+	}
+	if(conf['groovity.servlet.admin.api.policy'] != '/groovity/servlet/admin/apiPolicy'){
+		return
+	}
+	if(conf['groovity.cluster.secret']){
+		log(info:"Groovity servlet admin configured with secret for secure cluster communication")
+	}
+	else{
+		log(warn:"""
+Groovity servlet admin unavailable, to enable access configure environment with
+
+	-Dgroovity.cluster.secret={someBigLongRandomSecret}
+""")
+	}
+}
+
+//runtime; return configured api policy location
+conf['groovity.servlet.admin.api.policy']

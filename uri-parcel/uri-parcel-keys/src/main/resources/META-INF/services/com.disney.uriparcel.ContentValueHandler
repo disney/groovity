@@ -1,0 +1,3 @@
+com.disney.uriparcel.keys.KeyPairValueHandler
+com.disney.uriparcel.keys.PublicKeyValueHandler
+com.disney.uriparcel.keys.CertificateValueHandler

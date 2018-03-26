@@ -1,0 +1,98 @@
+/*******************************************************************************
+ * © 2018 Disney | ABC Television Group
+ *
+ * Licensed under the Apache License, Version 2.0 (the "Apache License")
+ * with the following modification; you may not use this file except in
+ * compliance with the Apache License and the following modification to it:
+ * Section 6. Trademarks. is deleted and replaced with:
+ *
+ * 6. Trademarks. This License does not grant permission to use the trade
+ *     names, trademarks, service marks, or product names of the Licensor
+ *     and its affiliates, except as required to comply with Section 4(c) of
+ *     the License and to reproduce the content of the NOTICE file.
+ *
+ * You may obtain a copy of the Apache License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the Apache License with the above modification is
+ * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the Apache License for the specific
+ * language governing permissions and limitations under the Apache License.
+ *******************************************************************************/
+
+time1 = getTimeCreated(['start',123]);
+Thread.sleep(5);
+time2 = getTimeCreated(['start',123]);
+Thread.sleep(5);
+time3 = getTimeCreated(['start',1234]);
+
+assert time1!=null
+assert time1==time2
+assert time2!=time3
+
+times1 = getTimeCreated2(['start',123],['start',456]);
+test1a = times1[['start',123]];
+test1b = times1[['start',456]];
+Thread.sleep(5);
+times2 = getTimeCreated2(['start',123],['start',456],['start',789]);
+test2a = times2[['start',123]];
+test2b = times2[['start',456]];
+test3 = times2[['start',789]];
+
+assert test1a!=null
+assert test1a==test2a;
+assert test1b!=null;
+assert test1b==test2b;
+assert test3 != test2b;
+
+//test refresh
+time1 = getTimeCreated(['start',999]);
+Thread.sleep(2500);
+time2 = getTimeCreated(['start',999]);
+Thread.sleep(2500);
+time3 = getTimeCreated(['start',999]);
+myTime = new Date();
+cachePut(name:"test1",key:['start',999],value:myTime,{});
+Thread.sleep(2);
+time4 = getTimeCreated(['start',999]);
+Thread.sleep(2);
+time5 = getTimeCreated(['start',999]);
+cacheRemove(name:"test1",key:['start',999],value:myTime,{});
+Thread.sleep(2);
+time6 = getTimeCreated(['start',999]);
+cacheRemove(name:"test1",key:['start',999],value:myTime,{});
+Thread.sleep(2);
+time7 = getTimeCreated(['start',999]);
+cacheRemove(name:"test1",key:['start',999],{});
+Thread.sleep(2);
+time8 = getTimeCreated(['start',999]);
+
+assert time1!=null
+assert time1==time2
+assert time2!=time3
+assert time4!=time3
+assert time4==time5;
+assert time6!=time5;
+assert time7==time6;
+assert time7!=time8;
+
+
+Object getTimeCreated(Object key){
+	cache(name:"test1", key:key, refresh:1, {
+		def curTime = System.nanoTime();
+		map.each{ entry ->
+			entry.value=curTime;
+		}
+	})
+}
+
+Map getTimeCreated2(Object... keys){
+	cache(name:"test2",keys:keys, {
+		def curTime =System.nanoTime();
+		map.each{ entry ->
+			entry.value=curTime;
+		}
+	})
+}

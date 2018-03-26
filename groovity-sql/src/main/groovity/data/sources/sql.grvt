@@ -1,0 +1,219 @@
+/*******************************************************************************
+ * © 2018 Disney | ABC Television Group
+ *
+ * Licensed under the Apache License, Version 2.0 (the "Apache License")
+ * with the following modification; you may not use this file except in
+ * compliance with the Apache License and the following modification to it:
+ * Section 6. Trademarks. is deleted and replaced with:
+ *
+ * 6. Trademarks. This License does not grant permission to use the trade
+ *     names, trademarks, service marks, or product names of the Licensor
+ *     and its affiliates, except as required to comply with Section 4(c) of
+ *     the License and to reproduce the content of the NOTICE file.
+ *
+ * You may obtain a copy of the Apache License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the Apache License with the above modification is
+ * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the Apache License for the specific
+ * language governing permissions and limitations under the Apache License.
+ *******************************************************************************/
+import com.disney.groovity.data.StorePayload
+import com.disney.groovity.sql.SqlRecordLocator
+import groovy.sql.Sql
+import java.sql.Clob
+
+load '/groovity/sql'
+
+@CompileStatic private Sql getSql(String datasource){
+	(Sql) sql.invokeMethod('sql', datasource)
+}
+
+@CompileStatic
+@Function(info="Look up one or more objects from a sql database.  Keys should take form of (source:)?table:field:value")
+public void call(Map<String,Object> map, Map conf){
+	map.each{ entry ->
+		def locator = new SqlRecordLocator(entry.key,conf)
+		StringBuilder queryBuilder = new StringBuilder("SELECT ")
+		if(locator.isCounting()){
+			queryBuilder.append("COUNT(*) AS count ")
+		}
+		else{
+			queryBuilder.append("* ")
+		}
+		queryBuilder.append("FROM ${locator.tableName} ");
+		List args = []
+		if(locator.primaryKeyValue || locator.fieldValues){
+			queryBuilder.append("WHERE ")
+			buildWhereClause(queryBuilder, locator, args)
+		}
+		if(!locator.primaryKeyValue){
+			if(locator.orderBy!=null){
+				queryBuilder.append("ORDER BY ").append(locator.orderBy).append(" ")
+			}
+			if(locator.offset!=null){
+				queryBuilder.append("OFFSET ").append(locator.offset).append(" ")
+			}
+			if(locator.limit!=null){
+				queryBuilder.append("LIMIT ").append(locator.limit).append(" ")
+			}
+		}
+		entry.value = async{
+			List<Map> results = new ArrayList<>()
+			getSql(locator.dataSource)
+				.eachRow(queryBuilder.toString(), args){ rs->
+					Map row = [:]
+					def meta = rs.metaData
+					for(int i=1; i<= meta.columnCount; i++){
+						def val = rs.getObject(i)
+						if(val instanceof Clob){
+							val = ((Clob)val).characterStream.text
+						}
+						row.put(meta.getColumnName(i), val)
+					}
+					results.add(row)
+				}
+			switch(results.size()){
+				case 0:
+					return null
+				case 1:
+					if(locator.primaryKeyValue){
+						//unwrap primary key lookups
+						return results.first()
+					}
+					if(locator.isCounting()){
+						return results.first().get('count')
+					}
+				default:
+					//non PK lookups always get a list
+					return results
+			}
+		}
+	}
+}
+
+@CompileStatic
+private void buildWhereClause(StringBuilder queryBuilder, SqlRecordLocator locator, List args){
+	if(locator.primaryKeyValue){
+		queryBuilder.append(locator.primaryKeyField).append(" = ? ")
+		args.add(locator.primaryKeyValue)
+	}
+	else{
+		boolean first= true;
+		locator.fieldValues.each{ field ->
+			if(!first){
+				queryBuilder.append("AND ")
+			}
+			queryBuilder.append(field.key).append(" = ? ")
+			args.add(field.value)
+			first=false
+		}
+	}
+}
+
+@CompileStatic
+@Function(info="Add an object to a sql table.  ID should take form of (source:)?table(:field:value)?")
+public String store(String key, StorePayload payload, Map conf){
+	def data = payload.data
+	def locator = new SqlRecordLocator(key, conf)
+	int found = 0
+	if(locator.primaryKeyValue){
+		StringBuilder queryBuilder = new StringBuilder("UPDATE ${locator.tableName} SET ")
+		List args = []
+		boolean first = true;
+		data.each{ Map.Entry entry ->
+			if(entry.value==null || entry.key in locator.fieldValues?.keySet()){
+				return
+			}
+			if(!first){
+				queryBuilder.append(', ')
+			}
+			queryBuilder.append(entry.key).append(" = ?")
+			args.add(entry.value)
+			first = false;
+		}
+		queryBuilder.append(" WHERE ")
+		buildWhereClause(queryBuilder, locator, args)
+		log(debug:"Attempting update ${queryBuilder} on ${locator.dataSource} with ${args}")
+		found = getSql(locator.dataSource).executeUpdate(queryBuilder.toString(), args);
+	}
+	if(!found){
+		//insert
+		StringBuilder queryBuilder = new StringBuilder("INSERT INTO ${locator.tableName} (")
+		StringBuilder valuesBuilder = new StringBuilder("VALUES(")
+		List args = []
+		boolean first = true;
+		data.each{ Map.Entry entry ->
+			if(entry.value==null || entry.key == locator.primaryKeyField){
+				return
+			}
+			if(!first){
+				queryBuilder.append(',')
+				valuesBuilder.append(',')
+			}
+			queryBuilder.append(entry.key)
+			valuesBuilder.append('?')
+			args.add(entry.value)
+			first = false;
+		}
+		valuesBuilder.append(')')
+		queryBuilder.append(') ').append(valuesBuilder)
+		log(debug:"Attempting insert ${queryBuilder} on ${locator.dataSource} with ${args}")
+		List<List> rs = (List<List>) getSql(locator.dataSource).executeInsert(queryBuilder.toString(), args);
+		locator.primaryKeyValue = ((Number)rs.first().getAt(0)).toLong()
+		log(debug:"Got auto-generated keys ${locator}")
+	}
+	locator.toString()
+}
+
+@CompileStatic
+@Function(info="Remove an object from the sql data layer.  ID should take form of (source:)?table:field:value")
+public void delete(String key, Map conf){
+	def locator = new SqlRecordLocator(key, conf)
+	StringBuilder queryBuilder = new StringBuilder("DELETE FROM ${locator.tableName} WHERE ")
+	List args = []
+	buildWhereClause(queryBuilder, locator, args)
+	sql.invokeMethod('sql',locator.dataSource).invokeMethod('execute',[queryBuilder.toString(),args]);
+}
+
+@CompileStatic
+@Function(info="furnish the receiver with pointers to objects whose sql.dateCol falls in the given range")
+public long dateRange(String key, long lowerBound, long upperBound, Map conf, Closure keyCallback){
+	if(!conf || !conf.containsKey('sql.dateCol')){
+		throw new RuntimeException("sql type must be configured with 'sql.dateCol' to watch for changes")
+	}
+	def modCol = conf.get('sql.dateCol')
+	def locator = new SqlRecordLocator(key,conf)
+	StringBuilder queryBuilder = new StringBuilder("SELECT ")
+	if(locator.isCounting()){
+		queryBuilder.append("COUNT(*) AS count ")
+	}
+	else{
+		queryBuilder.append("${locator.primaryKeyField}, ${modCol} ")
+	}
+	queryBuilder.append("FROM ${locator.tableName} ");
+	List args = []
+	queryBuilder.append("WHERE ")
+	if(locator.primaryKeyValue || locator.fieldValues){
+		buildWhereClause(queryBuilder, locator, args)
+		queryBuilder.append("AND ")
+	}
+	queryBuilder.append(modCol).append(" > ? AND ").append(modCol).append(" < ? ")
+	args.add(new Date(lowerBound))
+	args.add(new Date(upperBound))
+	queryBuilder.append("ORDER BY ").append(modCol).append(" ASC")
+	//log(info:"Running watcher query ${queryBuilder} ${date.time} ${curTime.time}")
+	List<Map> results = (List) sql.invokeMethod('sql',locator.dataSource).invokeMethod('rows',[queryBuilder.toString(), args])
+	results.each{ result ->
+		def pk = result.get(locator.primaryKeyField)
+		Date mod = (Date) result.get(modCol)
+		keyCallback(pk.toString())
+		if(mod.time > lowerBound){
+			lowerBound = mod.time
+		}
+	}
+	lowerBound
+}

@@ -1,0 +1,169 @@
+/*******************************************************************************
+ * © 2018 Disney | ABC Television Group
+ *
+ * Licensed under the Apache License, Version 2.0 (the "Apache License")
+ * with the following modification; you may not use this file except in
+ * compliance with the Apache License and the following modification to it:
+ * Section 6. Trademarks. is deleted and replaced with:
+ *
+ * 6. Trademarks. This License does not grant permission to use the trade
+ *     names, trademarks, service marks, or product names of the Licensor
+ *     and its affiliates, except as required to comply with Section 4(c) of
+ *     the License and to reproduce the content of the NOTICE file.
+ *
+ * You may obtain a copy of the Apache License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the Apache License with the above modification is
+ * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the Apache License for the specific
+ * language governing permissions and limitations under the Apache License.
+ *******************************************************************************/
+import javax.servlet.http.HttpSession
+import javax.websocket.Session
+
+static conf=[
+	source:'sql',
+	ttl:120,
+	refresh:90,
+	'sql.dataSource':'portalDB',
+	'sql.tableName':'person'
+]
+
+class Person implements java.security.Principal, DataModel, Stored, HasRowId, HasCreated, HasModified{
+	String userName;
+	String fullName;
+	String nickName;
+	String digest;
+	boolean suspended;
+	Date lastLogin;
+	
+	Person store(){
+		if(!userName){
+			throw new RuntimeException("Cannot store user with empty userName")
+		}
+		HasModified.super.store()
+	}
+	
+	void storeFilters(List<ModelFilter> filters){
+	 	filters.add(ModelFilter.exclude('roles','memberships'))
+	 	Stored.super.storeFilters(filters)
+	}
+	
+	//security Principal method
+	@ModelSkip @Override public String getName(){
+		return userName
+	}
+	
+	public boolean login(){
+		if(suspended || !userName){
+			return false
+		}
+		lastLogin = new Date()
+		if(id){
+			//don't update modification date on login
+			Stored.super.store()
+		}	
+		else{
+			//first time, set up dates and ID
+			HasModified.super.store()
+		}
+		request.session.setAttribute('userId', id);
+		request.session.setAttribute('assumedRoles',[]);
+		request.session.setAttribute('pageRoles',[:]);
+		return true;
+	}
+	
+	public Object getMembership(long groupId){
+		load('/data/factory')('membership',"crewId=${groupId}&personId=${id}")
+	}
+	
+	public Object getLeadership(long groupId){
+		load('/data/factory')('leadership',"crewId=${groupId}&personId=${id}")
+	}
+	
+	public void addMembership(long groupId){
+		if(!getMembership(groupId)){
+			membership = load('/data/factory')('membership').putAll(crewId:groupId,personId:id)
+			membership.store()
+		}
+	}
+
+	public void addLeadership(long groupId){
+		if(!getLeadership(groupId)){
+			leadership = load('/data/factory')('leadership').putAll(crewId:groupId,personId:id)
+			leadership.store()
+		}
+	}
+		
+	public void bootstrap(){
+		if(!id){
+			store()
+		}
+		def factory = load '/data/factory'
+		def superUsers = factory('group')
+		superUsers.name = "Superusers"
+		superUsers.store()
+		addMembership(superUsers.id);
+		superUsers.addRole("/","admin",id)
+	}
+	
+	public Collection getRoles(){
+		getMemberships().collect{ it.roles }.findAll{ it!=null }.flatten().unique()
+	}
+	
+	public Collection getRoles(Session session, String rolePath, List allowedRoles){
+		getRoles(session.userProperties.get('javax.servlet.http.HttpSession'), rolePath, allowedRoles)
+	}
+	
+	public Collection getRoles(HttpSession session, String rolePath, List allowedRoles){
+		def userRoles = getRoles();
+		def assumedRoles = session.getAttribute("assumedRoles");
+		def foundRoles = userRoles.findAll{ rolePath.startsWith(it.path) && allowedRoles.contains(it.role) }.collect{ it.role } ;
+		foundRoles.addAll( assumedRoles.findAll{ rolePath.startsWith(it.path) && allowedRoles.contains(it.role) }.collect{ it.role } );
+		if(allowedRoles.contains('auth')){
+			foundRoles.add('auth')
+		}
+		def pageRoles = session?.getAttribute('pageRoles')?.findAll{ rolePath.startsWith(it.key) }?.values().flatten()
+		if(pageRoles){
+			foundRoles.addAll(pageRoles?.findAll{ allowedRoles.contains(it) })
+		}
+		foundRoles
+	}
+	
+	public boolean hasRole(Session session, String rolePath, List allowedRoles){
+		!getRoles(session, rolePath, allowedRoles).isEmpty()
+	}
+	
+	public boolean hasRole(HttpSession session, String rolePath, List allowedRoles){
+		!getRoles(session, rolePath, allowedRoles).isEmpty()
+	}
+	
+	public Collection getMemberships(){
+		load('/data/factory')('membership', "personId=${id}")
+	}
+	
+	@ModelSkip
+	public Collection getNotices(){
+		def factory = load '/data/factory'
+		def deliveries = factory('delivery',"personId=${id}")
+		factory('notice',deliveries.collect{ it.noticeId.toString() })
+	}
+	
+	@ModelSkip
+	public Object getInbox(){
+		def factory = load '/data/factory'
+		def inbox = factory('inbox',"personId=${id}")?.first()
+		if(!inbox){
+			//auto-create inbox
+			inbox = factory('inbox').putAll(personId:id)
+			inbox.store()
+			factory.invalidate('inbox',"personId=${id}")
+		}
+		return inbox
+	}
+}
+
+new Person()

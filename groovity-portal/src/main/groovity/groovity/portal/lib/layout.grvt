@@ -1,0 +1,343 @@
+/*******************************************************************************
+ * © 2018 Disney | ABC Television Group
+ *
+ * Licensed under the Apache License, Version 2.0 (the "Apache License")
+ * with the following modification; you may not use this file except in
+ * compliance with the Apache License and the following modification to it:
+ * Section 6. Trademarks. is deleted and replaced with:
+ *
+ * 6. Trademarks. This License does not grant permission to use the trade
+ *     names, trademarks, service marks, or product names of the Licensor
+ *     and its affiliates, except as required to comply with Section 4(c) of
+ *     the License and to reproduce the content of the NOTICE file.
+ *
+ * You may obtain a copy of the Apache License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the Apache License with the above modification is
+ * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the Apache License for the specific
+ * language governing permissions and limitations under the Apache License.
+ *******************************************************************************/
+import java.net.URLEncoder;
+import javax.servlet.RequestDispatcher;
+import groovy.lang.Closure;
+
+static conf=[
+	PORTAL_LOGIN_LINK : "/portal/session/login?redirect=",
+	PORTAL_LOGOUT_LINK : "/portal/session/logout?redirect=",
+	PORTAL_BASE_URL : "",
+	PORTAL_HEAD_SECTION : "",
+	PORTAL_TITLE : "Portal",
+	PORTAL_FOOTER : "Copyright 2018 - All Rights Reserved"
+]
+
+@Tag(
+	info="present a page in the portal layout"
+)
+class Portal{
+	def tag(Map atts, Closure body){
+		def portal = load('/groovity/portal/lib/portal'); 
+		def layoutLib = load('/groovity/portal/lib/layout');
+		def pageRoles = null;
+		def sourcePath = null;
+		if(body.binding.hasVariable('portalPageConfig')){
+			sourcePath = portalPageConfig.path;
+			pageRoles = portalPageConfig.roles;
+		}
+		if(!sourcePath) {
+			sourcePath = (body.getClass().getClassLoader().getSourcePath() - ".grvt")
+		}
+		sitemap = portal.getSitemap();
+		def crumbs = []; // will hold breadcrumb
+		int spos = 0;
+		StringBuilder sb = new StringBuilder();
+		def tools = null; // will hold tab list if called for
+		def ancestors = null;
+		int slashCount = 0;
+		//walk source path to build breadcrumb list and tab list
+		while(spos>=0){
+			slashCount++;
+			def sbts = sb.toString();
+			def page = sitemap.find{ it.path==sbts+"/index" || it.path==sbts+"/" };
+			if(page?.tabs){
+				tools = [page]
+				tools.addAll(portal.getPages(sbts))
+				ancestors = sitemap.findAll{ it.tabs && it.path!='/' && sbts.startsWith(it.path - '/index') && sbts != (it.path - '/index') }.sort{ it.path.length() };
+			}
+			int nextPos = sourcePath.indexOf("/",spos+1);
+			if(nextPos>0){
+				sb.append(sourcePath.substring(spos,nextPos));
+				if(slashCount>1){
+					crumbs << sb.toString();
+				}
+			}
+			else{
+				String p = sourcePath.substring(spos);
+				if(p!="/index"){
+					sb.append(p);
+					crumbs << sb.toString();
+				}
+			}
+			
+			spos=nextPos;
+		}
+		//lookup page details from sitemap for breadcrumb links
+		crumbs = crumbs.collect{ cr ->
+			crIndex = cr+"/index";
+			sitemap.find{ cr==it.path || crIndex==it.path };
+		}.findAll{ it!=null }
+		
+		//build redirect URL for login/logout links
+		def rpath = request.getAttribute(RequestDispatcher.ERROR_REQUEST_URI);
+		def rquery = rpath ? request.getAttribute(RequestDispatcher.FORWARD_QUERY_STRING) : request.queryString;
+		rpath = rpath ?: request.pathInfo ?: request.servletPath;
+		redirectUrl = new StringBuilder(layoutLib.conf.PORTAL_BASE_URL);
+		if(rpath=='/groovity/portal/error'){
+			rpath = '/'
+		}
+		redirectUrl << rpath;
+		if(rquery){
+			redirectUrl << "?"
+			redirectUrl << rquery
+		}
+		redirectUrl = URLEncoder.encode(redirectUrl.toString());
+		def factory = load('/data/factory')
+		def user = body.request.userPrincipal;
+		def session = body.request.session
+		def userRoles = user?.roles;
+		def inbox = user?.inbox;
+		currentDepth = 0;
+		treeRecursion = <~
+			<g:set var = "curSlashPos" value = "${(currentPage.path - /\\/(index)?$/).lastIndexOf('/')}" /> 
+			<g:set var="currentFolder" value="${curSlashPos > 0 ? currentPage.path.substring(0,curSlashPos) : '/' }" />
+			<g:if test="${currentDepth < 1 || sourcePath.startsWith(currentFolder) || (currentDepth < 2 && currentFolder.count('/') < 3 )}">
+			<g:set var="currentChildren" value="${portal.getPages(currentPage.path)}" />
+			<li class="item">
+				<a href="${currentPage.path}"
+					<g:if test="${sourcePath==currentPage.path}">
+						class="current"
+					</g:if>
+				>${currentPage.title}</a>
+				<g:if test="${currentChildren}">
+					<g:set var="currentDepth" value="${currentDepth+1}"/>
+					<ul>
+					<g:each var="currentPage" in="${currentChildren}">
+						${treeRecursion}
+					</g:each>
+					</ul>
+					<g:set var="currentDepth" value="${currentDepth-1}"/>
+				</g:if>
+			</li>
+			</g:if>
+		~>
+		
+		stream <~<!DOCTYPE html>
+	<html>
+		<head>
+			<title>${body.portal.title ?: layoutLib.conf.PORTAL_TITLE}</title>
+			<meta name="apple-mobile-web-app-capable" content="yes">
+			<meta name = "viewport" content = "initial-scale = 1.0">
+			<link type="text/css" rel="stylesheet" href="/static/groovity/portal/portal.css" />
+			<script src="/static/groovity/portal/jquery-3.2.1.min.js" type="text/javascript" charset="utf-8"></script>
+			<g:if test="${user}"><g:events/></g:if>
+			<script src="/static/groovity/portal/portal.js" type="text/javascript" charset="utf-8"></script>
+			${layoutLib.conf.PORTAL_HEAD_SECTION}
+		</head>
+		<body>
+		<div id="portal-wrapper">
+		<div id="portal-header" class="group">
+			<div id="portal-menu">
+				<input type="checkbox" id="portal-menu-trigger"  />
+				<label for="portal-menu-trigger"><div id="portal-menu-button"></div></label>
+				<div id="portal-menu-tray">
+					<nav>
+						<ul>
+						<li class="item"><a href="/">Home</a></li>
+						<g:each var="currentPage" in ="${portal.rootPages}">
+							${treeRecursion}
+						</g:each>
+						</ul>
+					</nav>
+				</div>
+			</div>
+			<div id="portal-main-header">
+			<div id="portal-home"><a href="/">${layoutLib.conf.PORTAL_TITLE}</a></div>
+			</div>
+			<div id="portal-tools">
+				<input type="checkbox" id="portal-tools-trigger"  />
+				<label for="portal-tools-trigger"><div id="portal-tools-button"></div></label>
+				<div id="portal-tools-tray">
+					<g:if test="${user}">
+						<div class="item">
+						Hello ${user.nickName ?: user.fullName ?: user.userName}
+						</div>
+						<g:if test="${user.hasRole(session, sourcePath, ['admin'])}">
+							<g:if test="${pageRoles}">
+								<div class="item">
+									<g:if test="${session?.getAttribute('pageRoles')?.get(sourcePath) !=null }">
+										<div class="custom-roles">Roles</div>
+									</g:if>
+									<g:else>
+										<div>Roles</div>
+									</g:else>
+								<div class="roles-menu">
+									<form method="POST">
+										<input type="hidden" name="pageRoleAction" value="update">
+										<g:each var="pageRole" in="${pageRoles}">
+											<div class="role">
+											<input type="checkbox" name="pageRole_${pageRole}" id="pageRole_${pageRole}" onchange="this.form.submit()"
+												<g:if test="${roles.contains(pageRole)}">
+													checked="checked"
+												</g:if>
+											/>
+											<label for="pageRole_${pageRole}">${pageRole}</label>
+											</div>
+										</g:each>
+									</form>
+									<g:if test="${session?.getAttribute('pageRoles')?.get(sourcePath) != null}">
+										<div class="role">
+										<form method="POST">
+											<input type="hidden" name="pageRoleAction" value="reset" />
+											<input type="submit" value="Reset" />
+										</form>
+										</div>
+									</g:if>
+									<div style="clear:left"><!-- empty --></div>
+								</div>
+								</div>
+							</g:if>
+						</g:if>
+						<div class="item">
+						<a href="${layoutLib.conf.PORTAL_LOGOUT_LINK}${redirectUrl}">Logout</a>
+						</div>
+					</g:if>
+					<g:else>
+						<div class="item">
+						<a href="${layoutLib.conf.PORTAL_LOGIN_LINK}${redirectUrl}">Login</a>
+						</div>
+					</g:else>
+				</div>
+			</div>
+			<g:if test="${user}">
+			<div id="portal-notice">
+				<input type="checkbox" id="portal-notice-trigger"  />
+				<label for="portal-notice-trigger"><div id="portal-notice-button"
+					<g:if test="${inbox.isFresh()}">
+					class="active"
+					</g:if>
+				></div></label>
+				<div id="portal-notice-tray">
+					<div id="portal-notice-list">
+					Loading ...
+					</div>
+				</div>
+			</div>
+			</g:if>
+		</div>
+			
+			
+		<g:if test="${tools!=null && !tools.isEmpty()}">
+			<div id="portal-subheader">
+				<g:each var="ancestor" in="${ancestors}">
+					<a href="${ancestor.path}" class="portal-tab">${ancestor.title}</a> > 
+				</g:each>
+				<g:each var="tab" in="${tools}">
+					<a href="${tab.path}" class="portal-tab
+						<g:if test="${tab.path==sourcePath}">
+							active
+						</g:if>
+					">${tab.title}</a>
+				</g:each>
+			</div>
+		</g:if>
+		<div id="portal-body">
+		<g:if test="${binding.variables.formError || binding.variables.formMessage}">
+			<div style="margin:0px 12px">
+				<g:if test="${binding.variables.formError}">
+				<div class="formError">Error processing form: ${formError.message}</div>
+				</g:if>
+				<g:if test="${binding.variables.formMessage}">
+				<div class="formMessage">${formMessage}</div>
+				</g:if>
+			</div>
+		</g:if>
+		${body}
+			<div style="clear:both;line-height:1px"><!-- empty --></div>
+		</div>
+		<div id="portal-footer">
+			${layoutLib.conf.PORTAL_FOOTER}
+		</div>
+		</div>
+		</body>
+	</html>
+		~>;
+	}
+}
+		
+@Tag(
+	info="present a portlet with tool links in the portal layout",
+	attrs=[
+		@Attr(info="Path to portal folder to generate links for",name="path",required=true)
+	]
+)
+class PortalLinks{
+	def tag(Map atts, Closure body){
+		def portal = load('/groovity/portal/lib/portal');
+		def path = resolve(atts,'path',String.class)
+		def org = portal.sitemap.find{it.path == path};
+		def user = body.request.userPrincipal
+		if(!org.roles || 
+			(!user && org.roles.contains('anon')) ||
+			user?.hasRole(body.request.session, path, org.roles)
+		){
+			stream <~
+			<g:portlet title="${org.title}" link="${org.path}">
+				<ul class="portalLinks">
+					<g:each var="tool" in="${portal.getPages(path)}">
+						<li><a href="${tool.path}">${tool.title}</a></li>
+					</g:each>
+				</ul>
+			</g:portlet>
+			~>
+		}
+	}
+}
+
+@Tag(
+	info="create a portlet in the portal layout",
+	attrs=[
+		@Attr(info="Portlet title",name="title"),
+		@Attr(info="Optional href link for portlet title",name="link"),
+		@Attr(info="set true to create a double-width portlet", name="wide"),
+		@Attr(info="Set roles allowed to view this portlet",name="roles")
+	]
+)
+class Portlet{
+	def tag(Map atts, Closure body){
+		def title = resolve(atts,'title',String.class)
+		def link = resolve(atts,'link',String.class)
+		def wide = resolve(atts,'wide',Boolean.class)
+		def portletRoles = resolve(atts,'roles',String[].class)
+		portletRoles = portletRoles ? Arrays.asList(portletRoles) :[];
+		if(portletRoles.isEmpty() || body.roles.find{ portletRoles.contains(it) }){
+			stream <~
+				<div class="portlet<g:if test="${wide}"> wide</g:if>">
+					<g:if test="${title}">
+						<div class="title">
+						<g:if test="${link}">
+							<a href="${link}">${title}</a>
+						</g:if>
+						<g:else>
+							${title}
+						</g:else>
+						</div>
+					</g:if>
+					${body}
+				</div>
+			~>
+		}
+	}
+}
