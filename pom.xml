@@ -140,7 +140,7 @@
 		</pluginManagement>
 	</build>
 	<scm>
-		<connection>scm:git:ssh://git@github.com:disney/groovity.git</connection>
+		<connection>scm:git:ssh://git@github.com/disney/groovity.git</connection>
 		<tag>HEAD</tag>
 	</scm>
 	<distributionManagement>
