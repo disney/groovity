@@ -11,7 +11,7 @@
 		<fileSet>
 			<outputDirectory>/</outputDirectory>
 			<includes>
-				<include>src/main/**</include>
+				<include>src/main/groovity/**</include>
 				<include>src/test/**</include>
 			</includes>
 		</fileSet>

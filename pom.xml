@@ -39,6 +39,16 @@
 			<comments>License for included CryptoJS utility</comments>
 		</license>
 	</licenses>
+	<developers>
+		<developer>
+			<name>Alex Vigdor</name>
+			<organization>Disney | ABC Television Group</organization>
+			<roles>
+				<role>developer</role>
+			</roles>
+			<email></email>
+		</developer>
+	</developers>
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<groovy.version>2.4.13</groovy.version>
@@ -80,8 +90,47 @@
 		</dependency>
 	</dependencies>
 	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-javadoc-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>aggregate</id>
+						<goals>
+							<goal>aggregate</goal>
+						</goals>
+						<phase>site</phase>
+						<configuration>
+							<sourceFileExcludes>
+								<sourceFileExclude>Stub.java</sourceFileExclude>
+							</sourceFileExcludes>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
 		<pluginManagement>
 			<plugins>
+				<plugin>
+					<groupId>org.codehaus.mojo</groupId>
+					<artifactId>build-helper-maven-plugin</artifactId>
+					<version>3.0.0</version>
+					<executions>
+						<execution>
+							<id>add-source</id>
+							<phase>generate-sources</phase>
+							<goals>
+								<goal>add-source</goal>
+							</goals>
+							<configuration>
+								<sources>
+									<source>${project.basedir}/src/main/groovity/</source>
+								</sources>
+							</configuration>
+						</execution>
+					</executions>
+				</plugin>
 				<plugin>
 					<artifactId>maven-scm-plugin</artifactId>
 					<version>1.9.5</version>
@@ -105,27 +154,34 @@
 				</plugin>
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
-					<artifactId>maven-javadoc-plugin</artifactId>
-					<version>2.10.2</version>
-					<configuration>
-					</configuration>
+					<artifactId>maven-source-plugin</artifactId>
+					<version>3.0.1</version>
 					<executions>
 						<execution>
-							<id>aggregate</id>
+							<id>attach-sources</id>
 							<goals>
-								<goal>aggregate</goal>
+								<goal>jar</goal>
 							</goals>
-							<phase>site</phase>
-							<configuration>
-
-							</configuration>
+						</execution>
+					</executions>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-javadoc-plugin</artifactId>
+					<version>2.10.4</version>
+					<executions>
+						<execution>
+							<id>attach-javadocs</id>
+							<goals>
+								<goal>jar</goal>
+							</goals>
 						</execution>
 					</executions>
 				</plugin>
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-gpg-plugin</artifactId>
-					<version>1.5</version>
+					<version>1.6</version>
 					<executions>
 						<execution>
 							<id>sign-artifacts</id>
@@ -141,6 +197,7 @@
 	</build>
 	<scm>
 		<connection>scm:git:ssh://git@github.com/disney/groovity.git</connection>
+		<url>https://github.com/disney/groovity</url>
 		<tag>HEAD</tag>
 	</scm>
 	<distributionManagement>
