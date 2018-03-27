@@ -4,7 +4,7 @@
 	<parent>
 		<groupId>com.disney.groovity</groupId>
 		<artifactId>groovity-parent</artifactId>
-		<version>2.0.0-rc.16-SNAPSHOT</version>
+		<version>2.0.0-rc.16</version>
 	</parent>
 	<artifactId>groovity-standalone</artifactId>
 	<packaging>jar</packaging>
@@ -43,16 +43,13 @@
 					</goals>
 					<configuration>
 						<transformers>
-							<transformer
-								implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+							<transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
 								<mainClass>com.disney.groovity.standalone.GroovityStandalone</mainClass>
 							</transformer>
-							<transformer
-								implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
+							<transformer implementation="org.apache.maven.plugins.shade.resource.AppendingTransformer">
 								<resource>groovity/manifest</resource>
 							</transformer>
-							<transformer
-								implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
+							<transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
 						</transformers>
 						<filters>
 							<filter>
