@@ -9,14 +9,19 @@
 	<artifactId>http-auth-parent</artifactId>
 	<packaging>pom</packaging>
 	<name>HTTP auth parent project</name>
-	<build>
-		<plugins>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-gpg-plugin</artifactId>
-			</plugin>
-		</plugins>
-	</build>
+	<profiles>
+		<profile>
+			<id>release</id>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-gpg-plugin</artifactId>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+	</profiles>
 	<modules>
 		<module>http-auth-core</module>
 		<module>http-auth-server</module>
