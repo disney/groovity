@@ -224,6 +224,12 @@ public long dateRange(String key, long lowerBound, long upperBound, Map typeConf
 	String lb = format ? format.format(new Date(lowerBound)) : String.valueOf(lowerBound)
 	String ub = format ? format.format(new Date(upperBound)) : String.valueOf(upperBound)
 	EsQueryString eqs = new EsQueryString(key,typeConf) 
+	if(!eqs.searching && eqs.idValue){
+		//convert id lookup to search clause
+		eqs.query="_id:${eqs.idValue}"
+		eqs.idValue=null
+		eqs.searching=true
+	}
 	String clause = "${modCol}:{${lb} TO ${ub}}"
 	if(eqs.query){
 		eqs.query = "${clause} AND (${eqs.query})"

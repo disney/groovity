@@ -32,15 +32,22 @@ static web=[
 ]
 
 static List proxyData
+static String oldBaseUrl
 
 static init(){
 	def cl = Thread.currentThread().getContextClassLoader()
 	//load previously recorded proxy data set
 	proxyData = parse(value:cl.getResourceAsStream('/proxyData.json'))
-	System.setProperty('es.baseUrl',"http://localhost:${conf['groovity.port']}/mockES/")
+	oldBaseUrl = System.setProperty('es.baseUrl',"http://localhost:${conf['groovity.port']}/mockES/")
 }
 
 static destroy(){
+	if(oldBaseUrl){
+		System.setProperty('es.baseUrl',oldBaseUrl)
+	}
+	else{
+		System.clearProperty('es.baseUrl')
+	}
 	assert proxyData.isEmpty()
 }
 

@@ -29,15 +29,18 @@ int iters = 10000
 
 ConcurrentSkipListSet seenShoes = new ConcurrentSkipListSet()
 
+ConcurrentSkipListSet seenShoes2 = new ConcurrentSkipListSet()
 
 http(method:'DELETE',url:'http://localhost:9200/unit_test_shoe_inventory'){handler{}}
+factory('shoe').store()
 
 CountDownLatch latch = new CountDownLatch(iters)
+CountDownLatch latch2 = new CountDownLatch(iters)
 
 AtomicInteger counter = new AtomicInteger(0)
 
 def watcher = factory.watch('shoe'){
-	//log(info:"counting down ${latch}")
+	//log(info:"BY TYPE counting down ${latch}")
 	def shoe = factory(it)
 	if(!seenShoes.add((int)shoe.size)){
 		log(warn:"ALREADY SEEN SHOE ${shoe.size}")
@@ -46,23 +49,43 @@ def watcher = factory.watch('shoe'){
 	counter.incrementAndGet()
 }
 
+def watchers = (1..iters).collect{
+	factory.watch('shoe',it as String){ ptr->
+		//log(info:"BY ID counting down ${latch2}")
+		if(!seenShoes2.add(ptr.id)){
+			log(warn:"ALREADY SEEN SHOE ${ptr.id}")
+		}
+		latch2.countDown()
+	}
+}
+
+
 def shoes = (1..iters).collect{
-	factory('shoe').putAll(modified:System.currentTimeMillis(), size:it).store()
+	def shoe = factory('shoe').putAll(modified:System.currentTimeMillis(), size:it)
+	shoe.pointer= new Pointer('shoe',it.toString())
+	shoe.store()
 }
 log(info:"Done storing, now waiting")
 
 try{
-	assert latch.await(240,TimeUnit.SECONDS)
+	assert latch.await(100,TimeUnit.SECONDS)
+	assert latch2.await(100,TimeUnit.SECONDS)
 	Thread.sleep(2000)
 	if(seenShoes.size() !=iters){
 		def missing = []
 		(1..iters).each{ if(!seenShoes.contains(it)){ missing.add(it) }}
-		throw new Exception("Missed ${missing}")
+		throw new Exception("Watch by type Missed ${missing}")
+	}
+	if(seenShoes2.size() !=iters){
+		def missing = []
+		(1..iters).each{ if(!seenShoes2.contains(it)){ missing.add(it) }}
+		throw new Exception("Watch By ID Missed ${missing}")
 	}
 	assert counter.get() == iters
 }
 finally{
 	watcher.cancel(true)
+	watchers.each{ it.cancel(true) }
 	shoes.each{ it.delete() }
 }
 "done"
