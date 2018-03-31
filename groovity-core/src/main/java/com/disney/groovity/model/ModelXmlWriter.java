@@ -53,7 +53,9 @@ import javax.xml.bind.annotation.XmlElementWrapper;
 import javax.xml.bind.annotation.XmlElements;
 import javax.xml.bind.annotation.XmlList;
 import javax.xml.bind.annotation.XmlMixed;
+import javax.xml.bind.annotation.XmlNs;
 import javax.xml.bind.annotation.XmlRootElement;
+import javax.xml.bind.annotation.XmlSchema;
 import javax.xml.bind.annotation.XmlValue;
 import javax.xml.transform.OutputKeys;
 import javax.xml.transform.Transformer;
@@ -293,6 +295,20 @@ public class ModelXmlWriter extends ModelWalker{
 		XmlRootElement xre = c.getAnnotation(XmlRootElement.class);
 		String namespace = null;
 		if(xre!=null) {
+			Package p = c.getPackage();
+			if(p!=null) {
+				XmlSchema schema = p.getAnnotation(XmlSchema.class);
+				if(schema!=null && schema.xmlns()!=null) {
+					if(usedNamespacePrefixs==null) {
+						usedNamespacePrefixs = new HashMap<>();
+					}
+					for(XmlNs xns : schema.xmlns()) {
+						if(!usedNamespacePrefixs.containsKey(xns.namespaceURI())) {
+							usedNamespacePrefixs.put(xns.namespaceURI(), xns.prefix());
+						}
+					}
+				}
+			}
 			namespace = xre.namespace();
 			if(!"##default".equals(xre.name())) {
 				name = getTagName(namespace, xre.name());
@@ -626,4 +642,15 @@ public class ModelXmlWriter extends ModelWalker{
 	public void setRootElementName(String rootElementName) {
 		this.rootElementName = rootElementName;
 	}
+	
+	public void setNamespacePrefixes(Map<String, String> prefixes) {
+		if(usedNamespacePrefixs==null) {
+			usedNamespacePrefixs = new HashMap<>();
+		}
+		for(Iterator<Map.Entry<String, String>> iter = prefixes.entrySet().iterator(); iter.hasNext(); ) {
+			Map.Entry<String, String> entry = iter.next();
+			usedNamespacePrefixs.put(entry.getValue(), entry.getKey());
+		}
+	}
+	
 }

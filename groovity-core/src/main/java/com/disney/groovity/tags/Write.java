@@ -71,6 +71,8 @@ import groovy.lang.Writable;
  *	A ModelFilter or collection of ModelFilter objects to be used to transform the value during json or xml serialization,</li>
  *	<li><i>root</i>: 
  *	custom root element name for XML output</li>
+ *  <li><i>namespaces</i>: 
+ *	custom mapping of namespace prefixes to namespace URIs</li>
  *	</ul>{
  *	<blockquote>// code that writes output that will be printed if no value is specified</blockquote>
  * 	});
@@ -98,7 +100,8 @@ import groovy.lang.Writable;
 				@Attr(name="escape",required=false,info="escape the output as one of (xml|html|json)"),
 				@Attr(name="to",required=false,info="a writer to print the output to, defaults to binding out, or can specify String.class or empty string to write to a string"),
 				@Attr(name="filter",required=false,info="A ModelFilter or collection of ModelFilter objects to be used to transform the value during json or xml serialization"),
-				@Attr(name="root",required=false,info="custom root element name for XML output")
+				@Attr(name="root",required=false,info="custom root element name for XML output"),
+				@Attr(name="namespaces",required=false,info="custom mapping of namespace prefixes to namespace URIs")
 		}
 		)
 public class Write implements Taggable{
@@ -212,6 +215,11 @@ public class Write implements Taggable{
 						String root = resolve(attributes,"root",String.class);
 						if(root!=null) {
 							((ModelXmlWriter)mw).setRootElementName(root);
+						}
+						@SuppressWarnings("unchecked")
+						Map<String,String> prefixes = resolve(attributes,"namespaces",Map.class);
+						if(prefixes!=null) {
+							((ModelXmlWriter)mw).setNamespacePrefixes(prefixes);
 						}
 					}
 					else {

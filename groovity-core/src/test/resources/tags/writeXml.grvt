@@ -24,6 +24,7 @@
 import javax.xml.bind.annotation.*
 import javax.xml.bind.JAXBElement
 import javax.xml.namespace.QName
+import com.disney.groovity.test.jaxb.Doc
  
 class Example1{
  	String foo = "la"
@@ -271,3 +272,54 @@ parsed = parse(value:rt, to: Example15.class)
 assert parsed.xyz == 987
 rt = write(value:ex15, format:"xml", to:"", pretty:true)
 assert rt=='<ns1:example15 ns1:bar="456" foo="&lt;&gt;&amp;&apos;&quot;" ns7:xyz="987" xmlns:ns1="http://ns1.com/" xmlns:ns2="http://ns5.com/" xmlns:ns3="http://ns6.com" xmlns:ns4="http://ns7.com/" xmlns:ns5="http://ns3.com/" xmlns:ns6="http://ns4.com/" xmlns:ns7="http://ns2.com/">\n\t<ns2:embed>a</ns2:embed>\n\t<ns2:embed>b</ns2:embed>\n\t<ns2:embed>c</ns2:embed>\n\t<ns3:items>\n\t\t<item>1</item>\n\t\t<item>2</item>\n\t\t<item>3</item>\n\t</ns3:items>\n\t<ns4:last>done</ns4:last>\n\t<ns5:letters>a b c</ns5:letters>\n\t<ns6:nester>\n\t\t<ns2:nested>x</ns2:nested>\n\t\t<ns2:nested>y</ns2:nested>\n\t\t<ns2:nested>z</ns2:nested>\n\t</ns6:nester>\n</ns1:example15>'
+
+doc = new Doc()
+doc.id=123
+doc.foo='bar'
+doc.abc='xyz'
+
+rt = write(value:doc,to:"",format:'xml')
+assert rt == '<sample:doc example:id="123" xmlns:sample="http://sample.com/" xmlns:ns3="http://custom.com/" xmlns:example="http://example.com/"><sample:abc>xyz</sample:abc><ns3:foo>bar</ns3:foo></sample:doc>'
+
+@XmlRootElement(namespace="http://sample.com/")
+public class Idoc {
+	
+	private Integer id;
+	
+	private String foo;
+	
+	private String abc;
+	
+	@XmlAttribute(namespace="http://example.com/")
+	public Integer getId() {
+		return id;
+	}
+	public void setId(Integer id) {
+		this.id = id;
+	}
+	
+	@XmlElement(namespace="http://custom.com/")
+	String getFoo() {
+		return foo;
+	}
+	void setFoo(String foo) {
+		this.foo = foo;
+	}
+	
+	@XmlElement(namespace="http://sample.com/")
+	private String getAbc() {
+		return abc;
+	}
+	private void setAbc(String abc) {
+		this.abc = abc;
+	}
+}
+
+idoc = new Idoc()
+idoc.id=123
+idoc.foo='bar'
+idoc.abc='xyz'
+
+rt = write(value:idoc,to:"",format:'xml', namespaces:[sample:'http://sample.com/', example:'http://example.com/'])
+assert rt == '<sample:idoc example:id="123" xmlns:sample="http://sample.com/" xmlns:ns3="http://custom.com/" xmlns:example="http://example.com/"><sample:abc>xyz</sample:abc><ns3:foo>bar</ns3:foo></sample:idoc>'
+
