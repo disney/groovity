@@ -31,8 +31,8 @@ class EventSocket{
 			url += "://"+window.location.host+"/ws/events"
 		}
 		this.url=url
-		this.subs = new Map()
-		this.cbs = new Map()
+		this.subs = new Object()
+		this.cbs = new Object()
 		this.opened = false;
 		this.openers = new Array()
 		this.closers = new Array()
@@ -64,11 +64,11 @@ class EventSocket{
 				}
 				t.ws.send(b)
 			}
-			for(var prop of t.subs.keys()){
+			Object.keys(t.subs).forEach(function(prop){
 				t.doSend(JSON.stringify(
 					{ "subscribe" : prop }
 				))
-			}
+			})
 			for(var i=0;i<t.openers.length;i++){
 				t.openers[i]()
 			}
@@ -86,7 +86,7 @@ class EventSocket{
 			try{
 				var msg = JSON.parse(message.data)	
 				if(msg.event != null){
-					var sub = t.subs.get(msg.event)
+					var sub = t.subs[msg.event]
 					if(sub){
 						// pass event data to subscribers
 						for(var i=0;i<sub.length;i++){
@@ -96,11 +96,11 @@ class EventSocket{
 					}
 				}
 				else if(msg.id != null){
-					var cb = t.cbs.get(msg.id)
+					var cb = t.cbs[msg.id]
 					if(cb){
 						//process and remove callback
 						cb(msg.data)
-						t.cbs.delete(msg.id)
+						delete t.cbs[msg.id]
 					}
 				}
 			}
@@ -150,10 +150,10 @@ class EventSocket{
 			this.closers.push(handler)
 		}
 		else{
-			var handlers = this.subs.get(event)
+			var handlers = this.subs[event]
 			if(handlers == null){
 				handlers = []
-				this.subs.set(event, handlers)
+				this.subs[event] = handlers
 			}
 			handlers.push( handler )
 			if(this.opened === true){
@@ -189,12 +189,12 @@ class EventSocket{
 			if(typeof lastArg == 'function'){
 				//register callback
 				var cbid = this.generateCBID()
-				while(typeof this.cbs.get(cbid) != 'undefined'){
+				while(typeof this.cbs[cbid] != 'undefined'){
 					cbid = this.generateCBID()
 				}
-				this.cbs.set(cbid, lastArg)
+				this.cbs[cbid] = lastArg
 				if(this.debug){
-					console.log('registered callback',cbid,this.cbs.get(cbid))
+					console.log('registered callback',cbid,this.cbs[cbid])
 				}
 				message['id'] = cbid
 				if(arguments.length > 2){
