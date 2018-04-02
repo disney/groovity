@@ -26,12 +26,15 @@ import javax.xml.bind.JAXBElement
 import javax.xml.namespace.QName
 import com.disney.groovity.test.jaxb.Doc
  
+@ModelSkip(['not','hidden'])
 class Example1{
  	String foo = "la"
  	int bar = 123
  	def xyz = { "abc" }
  	def joe = [ a:1, b:2]
  	def eeks =['eek','aak']
+ 	def not = "really here"
+ 	def hidden = "invisible"
 }
  
 def out1 = write(format:'xml',to:"",value:new Example1(), filter:ModelFilter.transform('foo'){ it.reverse() })

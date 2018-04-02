@@ -25,6 +25,7 @@ package com.disney.groovity.model;
 
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.ElementType.TYPE;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
 import java.lang.annotation.Retention;
@@ -36,5 +37,7 @@ import java.lang.annotation.Target;
  * @author Alex Vigdor
  */
 @Retention(RUNTIME)
-@Target({FIELD, METHOD})
-public @interface ModelSkip {}
+@Target({FIELD, METHOD, TYPE})
+public @interface ModelSkip {
+	String[] value() default {};
+}

@@ -176,6 +176,12 @@ public class MetaPropertyLookup {
 					skipProperties.add("lastEntry");
 				}
 			}
+			ModelSkip classSkip = c.getAnnotation(ModelSkip.class);
+			if(classSkip!=null && classSkip.value()!=null) {
+				for(String prop: classSkip.value()) {
+					skipProperties.add(prop);
+				}
+			}
 			for(MetaProperty mp: mps) {
 				if(!skipProperties.contains(mp.getName()) && ! Closeable.class.isAssignableFrom(mp.getType())) {
 					//now check for skip annotations
