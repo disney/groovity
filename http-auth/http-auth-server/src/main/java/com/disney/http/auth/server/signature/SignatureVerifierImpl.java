@@ -38,6 +38,8 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javax.crypto.Mac;
 
@@ -55,6 +57,7 @@ import com.disney.http.auth.keychain.KeyChain;
  * @author Alex Vigdor
  */
 public class SignatureVerifierImpl extends AbstractVerifier implements AuthConstants, Verifier {
+	private static final Logger log = Logger.getLogger(SignatureVerifierImpl.class.getName());
 	private long maxDateDrift=300000;
 	private List<KeyChain> keyChains;
 	private List<String> requiredHeaders = Arrays.asList("date");
@@ -185,6 +188,9 @@ public class SignatureVerifierImpl extends AbstractVerifier implements AuthConst
 			}
 			else{
 				errorMessage = ERROR_VERIFICATION_FAILED;
+				if(log.isLoggable(Level.FINE)) {
+					log.fine("\n\tUnable to verify signature\n"+authHeader.get(0)+"\n\twith signing string\n"+toSign);
+				}
 			}
 		}
 		challenge(result, errorMessage);

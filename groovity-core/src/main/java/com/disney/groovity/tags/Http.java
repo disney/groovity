@@ -323,6 +323,12 @@ public class Http implements Taggable {
 				if(val.trim().length()>0){
 					dataEntity = new StringEntity(val);
 				}
+				if(builder.getScheme().equals("http") && builder.getPort()==80) {
+					builder.setPort(-1);
+				}
+				else if(builder.getScheme().equals("https") && builder.getPort()==443) {
+					builder.setPort(-1);
+				}
 				uri = builder.build();
 				if(userPass.isPresent()){
 					CredentialsProvider credsProvider = new BasicCredentialsProvider();

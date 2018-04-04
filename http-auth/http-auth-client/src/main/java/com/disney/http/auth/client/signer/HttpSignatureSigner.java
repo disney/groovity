@@ -40,80 +40,87 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.Callable;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
- * HttpRequestInterceptor for adding the signed HTTP Signature header to an outgoing request.  Should be configured either
- * with a KeyLoader or KeyPairLoader (whose private key would be used to sign)
+ * HttpRequestInterceptor for adding the signed HTTP Signature header to an
+ * outgoing request. Should be configured either with a KeyLoader or
+ * KeyPairLoader (whose private key would be used to sign)
  *
  * @author Rachel Kobayashi
  *
  */
 public class HttpSignatureSigner extends AbstractSigner implements HttpRequestInterceptor, AuthConstants {
-    private Callable<? extends Key> keyLoader;
-    private Callable<? extends KeyPair> keyPairLoader;
-    private List<String> headers = Arrays.asList("Date");
-    private String keyId;
-    private String algorithm = "hmac-sha256";
+	private static final Logger log = Logger.getLogger(HttpSignatureSigner.class.getName());
+	private Callable<? extends Key> keyLoader;
+	private Callable<? extends KeyPair> keyPairLoader;
+	private List<String> headers = Arrays.asList("Date");
+	private String keyId;
+	private String algorithm = "hmac-sha256";
 
-    public HttpSignatureSigner(){
-        super.setHeaderName(AUTHORIZATION_HEADER);
-    }
+	public HttpSignatureSigner() {
+		super.setHeaderName(AUTHORIZATION_HEADER);
+	}
 
-    @Override
-    protected String makeSignature(HttpRequest request) throws HttpException{
-    	SignatureAuthorization sa = doAuthorization(request);
-    	if(super.getHeaderName().equals(AUTHORIZATION_HEADER)){
-            return SIGNATURE_HEADER+" "+sa.toString();
-        } else {
-            return sa.toString();
-        }
-    }
-    
-    public SignatureAuthorization doAuthorization(HttpRequest request) throws HttpException{
-    	if(keyId == null || keyId.isEmpty()){
-            throw new HttpException("Signer Configuration Error: no KeyId set");
-        }
-    	// fill in date field if missing from request;
-        if(request.getLastHeader("x-date") == null && request.getLastHeader("date") == null){
-            request.addHeader("Date", DateUtils.formatDate(new Date()));
-        }
-    	SignatureAuthorization sa = new SignatureAuthorization();
-        sa.setAlgorithm(algorithm);
-        sa.setHeaders(headers);
-        sa.setKeyId(keyId);
-        String signingString = sa.generateSigningString(new ClientAuthorizationRequest(request));
-        try {
-        	//System.out.println("Client signing string "+signingString);
-        	String signingAlgorithm = Algorithms.getSecurityAlgorithm(algorithm);
-        	Key key = null;
-        	if(keyLoader!=null){
-        		key = keyLoader.call();
-        	}
-        	else if(getKeyPairLoader()!=null){
-        		//always sign with the private key, validate with the public key
-        		key = getKeyPairLoader().call().getPrivate();
-        	}
-        	else{
-        		throw new RuntimeException("No key loader provided for HTTP Signature Signer");
-        	}
-            // keyId must be set, as per protocol
-            if(signingAlgorithm.startsWith("Hmac")) {
-                Mac mac = Mac.getInstance(signingAlgorithm);
-                mac.init(key);
-                sa.setSignature(mac.doFinal(signingString.getBytes("UTF-8")));
-            } else if(signingAlgorithm.endsWith("RSA")){ // rsa
-                Signature rsaSigner = Signature.getInstance(signingAlgorithm);
-                rsaSigner.initSign((PrivateKey) key);
-                rsaSigner.update(signingString.getBytes("UTF-8"));
-                sa.setSignature(rsaSigner.sign());
-            } else {
-                throw new NoSuchAlgorithmException("No known algorithm for "+signingAlgorithm);
-            }
-            return sa;
-        } catch(Exception e) {
-            throw new HttpException("Invalid Signature Authorization: signer was not correctly configured.",e);
-        }
-    }
+	@Override
+	protected String makeSignature(HttpRequest request) throws HttpException {
+		SignatureAuthorization sa = doAuthorization(request);
+		if (super.getHeaderName().equals(AUTHORIZATION_HEADER)) {
+			return SIGNATURE_HEADER + " " + sa.toString();
+		} else {
+			return sa.toString();
+		}
+	}
+
+	public SignatureAuthorization doAuthorization(HttpRequest request) throws HttpException {
+		if (keyId == null || keyId.isEmpty()) {
+			throw new HttpException("Signer Configuration Error: no KeyId set");
+		}
+		// fill in date field if missing from request;
+		if (request.getLastHeader("x-date") == null && request.getLastHeader("date") == null) {
+			request.addHeader("Date", DateUtils.formatDate(new Date()));
+		}
+		SignatureAuthorization sa = new SignatureAuthorization();
+		sa.setAlgorithm(algorithm);
+		sa.setHeaders(headers);
+		sa.setKeyId(keyId);
+		String signingString = sa.generateSigningString(new ClientAuthorizationRequest(request));
+		try {
+			// System.out.println("Client signing string "+signingString);
+			String signingAlgorithm = Algorithms.getSecurityAlgorithm(algorithm);
+			Key key = null;
+			if (keyLoader != null) {
+				key = keyLoader.call();
+			} 
+			else if (getKeyPairLoader() != null) {
+				// always sign with the private key, validate with the public key
+				key = getKeyPairLoader().call().getPrivate();
+			} 
+			else {
+				throw new RuntimeException("No key loader provided for HTTP Signature Signer");
+			}
+			// keyId must be set, as per protocol
+			if (signingAlgorithm.startsWith("Hmac")) {
+				Mac mac = Mac.getInstance(signingAlgorithm);
+				mac.init(key);
+				sa.setSignature(mac.doFinal(signingString.getBytes("UTF-8")));
+			} else if (signingAlgorithm.endsWith("RSA")) { // rsa
+				Signature rsaSigner = Signature.getInstance(signingAlgorithm);
+				rsaSigner.initSign((PrivateKey) key);
+				rsaSigner.update(signingString.getBytes("UTF-8"));
+				sa.setSignature(rsaSigner.sign());
+			} else {
+				throw new NoSuchAlgorithmException("No known algorithm for " + signingAlgorithm);
+			}
+			if (log.isLoggable(Level.FINE)) {
+				log.fine("Generated signature \n\t" + sa.toString() + "\nfor signing string \n\t" + signingString);
+			}
+			return sa;
+		} catch (Exception e) {
+			throw new HttpException("Invalid Signature Authorization: signer was not correctly configured.", e);
+		}
+	}
 
 	public List<String> getHeaders() {
 		return headers;

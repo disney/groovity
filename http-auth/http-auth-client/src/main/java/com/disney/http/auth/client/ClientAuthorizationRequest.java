@@ -27,6 +27,7 @@ import com.disney.http.auth.AuthorizationRequest;
 import org.apache.http.Header;
 import org.apache.http.HttpRequest;
 import org.apache.http.client.methods.HttpUriRequest;
+import org.apache.http.client.utils.URIUtils;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -47,17 +48,7 @@ public class ClientAuthorizationRequest implements AuthorizationRequest {
 		this.httpRequest = httpRequest;
 		if (httpRequest instanceof HttpUriRequest) {
 			URI uri = ((HttpUriRequest) httpRequest).getURI();
-			String h = uri.getHost();
-			if (uri.getScheme().equals("http")) {
-				if (uri.getPort() != 80) {
-					h += ":" + uri.getPort();
-				}
-			} else if (uri.getScheme().equals("https")) {
-				if (uri.getPort() != 443) {
-					h += ":" + uri.getPort();
-				}
-			}
-			this.host = h;
+			this.host = URIUtils.extractHost(uri).toHostString();
 			this.uri = uri.getPath() + (uri.getRawQuery() == null ? "" : "?".concat(uri.getRawQuery()));
 		} else {
 			this.uri = null;
