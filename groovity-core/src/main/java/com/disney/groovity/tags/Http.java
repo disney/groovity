@@ -297,6 +297,7 @@ public class Http implements Taggable {
 			Optional<UserPass> userPass;
 			Optional<HttpSignatureSigner> signer;
 			Optional<HttpRequestInterceptor> interceptor;
+			ContentType targetType= null;
 			try {
 				builder = new URIBuilder(url.toString());
 				bind(context,Uri.CURRENT_URI_BUILDER, builder);
@@ -319,9 +320,18 @@ public class Http implements Taggable {
 					signer = Signature.resolveSigner(variables);
 					interceptor = resolveInterceptor(variables);
 				}
+				for(Header header: headers) {
+					if(header.getName().equalsIgnoreCase("Content-Type")) {
+						targetType = ContentType.parse(header.getValue());
+						if(targetType.getCharset()==null) {
+							targetType = targetType.withCharset("UTF-8");
+						}
+						break;
+					}
+				}
 				String val = sw.toString();
 				if(val.trim().length()>0){
-					dataEntity = new StringEntity(val);
+					dataEntity = new StringEntity(val, targetType);
 				}
 				if(builder.getScheme().equals("http") && builder.getPort()==80) {
 					builder.setPort(-1);
@@ -362,31 +372,30 @@ public class Http implements Taggable {
 					}
 					else{
 						//look at content type for a hint
-						Header targetType= request.getFirstHeader("Content-Type");
-						if(targetType!=null && targetType.getValue().contains("json")){
+						if(targetType!=null && targetType.getMimeType().contains("json")){
 							CharArrayWriter caw = new CharArrayWriter();
 							new ModelJsonWriter(caw).visit(data);
-							dataEntity = new StringEntity(caw.toString());
+							dataEntity = new StringEntity(caw.toString(), targetType);
 						}
-						else if(targetType!=null && targetType.getValue().contains("xml")){
+						else if(targetType!=null && targetType.getMimeType().contains("xml")){
 							if(data instanceof groovy.util.Node){
-								dataEntity = new StringEntity(XmlUtil.serialize((groovy.util.Node)data));
+								dataEntity = new StringEntity(XmlUtil.serialize((groovy.util.Node)data), targetType);
 							}
 							else if (data instanceof GPathResult){
-								dataEntity = new StringEntity(XmlUtil.serialize((GPathResult)data));
+								dataEntity = new StringEntity(XmlUtil.serialize((GPathResult)data), targetType);
 							}
 							else if(data instanceof Element){
-								dataEntity = new StringEntity(XmlUtil.serialize((Element)data));
+								dataEntity = new StringEntity(XmlUtil.serialize((Element)data), targetType);
 							}
 							else if(data instanceof Document){
-								dataEntity = new StringEntity(XmlUtil.serialize(((Document)data).getDocumentElement()));
+								dataEntity = new StringEntity(XmlUtil.serialize(((Document)data).getDocumentElement()), targetType);
 							}
 							else{
 								//if it's not an XML model assume it's a well formed XML string
-								dataEntity = new StringEntity(data.toString());
+								dataEntity = new StringEntity(data.toString(), targetType);
 							}
 						}
-						else if((targetType!=null && targetType.getValue().contains("x-www-form-urlencoded"))
+						else if((targetType!=null && targetType.getMimeType().contains("x-www-form-urlencoded"))
 								|| (targetType==null && (data instanceof Map || data instanceof List))){
 							//key/value pairs, accept a map, a list of maps, or a list of NameValuePairs
 							Iterator source = data instanceof Map? ((Map)data).entrySet().iterator() : ((List)data).iterator();
@@ -408,9 +417,9 @@ public class Http implements Taggable {
 									}
 								}
 							}
-							dataEntity = new UrlEncodedFormEntity(pairs);
+							dataEntity = new UrlEncodedFormEntity(pairs, "UTF-8");
 						}
-						else if(targetType!=null && targetType.getValue().contains("multipart/form-data")){
+						else if(targetType!=null && targetType.getMimeType().contains("multipart/form-data")){
 							//list of maps, each map must contain "name" and "body", plus optional "type" and "filename"
 							Iterator<Map> parts = ((List<Map>)data).iterator();
 							MultipartEntityBuilder meBuilder = MultipartEntityBuilder.create();
@@ -454,16 +463,16 @@ public class Http implements Taggable {
 						else{
 							//no help from content type header, check for modeled XML
 							if(data instanceof groovy.util.Node){
-								dataEntity = new StringEntity(XmlUtil.serialize((groovy.util.Node)data), ContentType.APPLICATION_XML);
+								dataEntity = new StringEntity(XmlUtil.serialize((groovy.util.Node)data), ContentType.APPLICATION_XML.withCharset("UTF-8"));
 							}
 							else if (data instanceof GPathResult){
-								dataEntity = new StringEntity(XmlUtil.serialize((GPathResult)data), ContentType.APPLICATION_XML);
+								dataEntity = new StringEntity(XmlUtil.serialize((GPathResult)data), ContentType.APPLICATION_XML.withCharset("UTF-8"));
 							}
 							else if(data instanceof Element){
-								dataEntity = new StringEntity(XmlUtil.serialize((Element)data), ContentType.APPLICATION_XML);
+								dataEntity = new StringEntity(XmlUtil.serialize((Element)data), ContentType.APPLICATION_XML.withCharset("UTF-8"));
 							}
 							else if(data instanceof Document){
-								dataEntity = new StringEntity(XmlUtil.serialize(((Document)data).getDocumentElement()), ContentType.APPLICATION_XML);
+								dataEntity = new StringEntity(XmlUtil.serialize(((Document)data).getDocumentElement()), ContentType.APPLICATION_XML.withCharset("UTF-8"));
 							}
 							else if(data instanceof byte[]){
 								dataEntity = new ByteArrayEntity((byte[]) data); 
@@ -476,7 +485,7 @@ public class Http implements Taggable {
 							}
 							else{
 								//best option left is to post the toString value of the data
-								dataEntity = new StringEntity(data.toString());
+								dataEntity = new StringEntity(data.toString(),"UTF-8");
 							}
 						}
 					}
