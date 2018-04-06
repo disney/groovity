@@ -105,6 +105,7 @@ import com.disney.groovity.Taggable;
 import com.disney.groovity.doc.Attr;
 import com.disney.groovity.doc.Tag;
 import com.disney.groovity.model.ModelJsonWriter;
+import com.disney.groovity.model.ModelXmlWriter;
 import com.disney.groovity.stats.GroovityStatistics;
 import com.disney.groovity.tags.Credentials.UserPass;
 import com.disney.groovity.util.ScriptHelper;
@@ -390,9 +391,14 @@ public class Http implements Taggable {
 							else if(data instanceof Document){
 								dataEntity = new StringEntity(XmlUtil.serialize(((Document)data).getDocumentElement()), targetType);
 							}
-							else{
-								//if it's not an XML model assume it's a well formed XML string
+							else if(data instanceof CharSequence){
+								//if it's a string assume a well formed XML string
 								dataEntity = new StringEntity(data.toString(), targetType);
+							}
+							else {
+								CharArrayWriter caw = new CharArrayWriter();
+								new ModelXmlWriter(caw).visit(data);
+								dataEntity = new StringEntity(caw.toString(), targetType);
 							}
 						}
 						else if((targetType!=null && targetType.getMimeType().contains("x-www-form-urlencoded"))
