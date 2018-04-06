@@ -263,7 +263,6 @@ public class GroovityBuilder {
 	 */
 	public Groovity build(boolean start) throws IllegalAccessException, IllegalArgumentException, InvocationTargetException, IOException, URISyntaxException{
 		CopyOnWriteArrayList<Configurator> configurators = new CopyOnWriteArrayList<Configurator>();
-		configurators.add(new SystemConfigurator());
 		if(propsResource!=null){
 			configurators.add(new PropertiesResourceConfigurator(propsResource));
 		}
@@ -273,6 +272,7 @@ public class GroovityBuilder {
 		if(propsURL!=null){
 			configurators.add(new PropertiesURLConfigurator(propsURL));
 		}
+		configurators.add(new SystemConfigurator());
 		if(configurator!=null){
 			configurators.add(configurator);
 		}
