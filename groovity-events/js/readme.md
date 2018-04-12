@@ -2,15 +2,21 @@
 
 This package contains a minified, ES5 compatible copy of the javascript client library for the groovity-events websocket multiplexing library.  While the groovity-events jar distribution contains this javascript client library as well, this node module is provided for convenience when bundling a front-end application together.
 
+To import as a javascript module:
+
+```
+import { EventSocket } from 'groovity-events-client';
+```
+
 This library supports a similar syntax to Socket.io for interacting with a Groovity server with the groovity-events module installed; the event model is application specific except for the pre-definited `open` and `close` events.
 
 
-Sample usage:
+Sample usage in browser code:
 
 ```
  <script type="text/javascript" src = "/static/groovity/events/groovity-events.js"> </script>
  <script type="text/javascript">
-	window.socket = new EventSocket('wss://my.groovity.host/ws/events')
+	window.socket = new groovityEvents.EventSocket('wss://my.groovity.host/ws/events')
     //emit with no callback is fire and forget from client to server
     socket.emit('page-load', window.location.href)
 

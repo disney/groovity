@@ -212,3 +212,4 @@ class EventSocket{
 		return Math.floor(Math.random() * 2000000000).toString()
 	}
 }
+export { EventSocket }

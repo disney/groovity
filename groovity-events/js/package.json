@@ -1,6 +1,6 @@
 {
 	"name": "groovity-events-client",
-	"version": "2.0.0-rc.18",
+	"version": "2.0.0-rc.19",
 	"description": "Client for groovity events websocket multiplexing framework",
 	"main": "lib/groovity-events.js",
 	"author": "Alex Vigdor",
@@ -16,11 +16,12 @@
 		"registry": "https://registry.npmjs.org"
 	},
 	"scripts": {
-		"prepare": "./node_modules/babel-cli/bin/babel.js src --out-dir lib --presets es2015,minify"
+		"prepare": "./node_modules/babel-cli/bin/babel.js src --out-dir lib --presets es2015,minify --plugins transform-es2015-modules-umd"
 	},
 	"devDependencies": {
 		"babel-cli": "^6.1.2",
 		"babel-preset-es2015": "^6.1.2",
-		"babel-preset-minify": "^0.3.0"
+		"babel-preset-minify": "^0.3.0",
+		"babel-plugin-transform-es2015-modules-umd": "6.24.1"
 	}
 }
