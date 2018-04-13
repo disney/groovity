@@ -29,6 +29,7 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.lang.reflect.InvocationTargetException;
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -52,6 +53,7 @@ import com.disney.groovity.ArgsException;
 import com.disney.groovity.BindingDecorator;
 import com.disney.groovity.Groovity;
 import com.disney.groovity.GroovityBuilder;
+import com.disney.groovity.GroovityObjectConverter;
 import com.disney.groovity.GroovityPhase;
 import com.disney.groovity.compile.GroovityClassLoader;
 import com.disney.groovity.conf.Configurator;
@@ -349,6 +351,19 @@ public class TestCoreGroovity {
 		Assert.assertEquals(Level.WARNING, logRecords.get(0).getLevel());
 		Assert.assertEquals(Level.SEVERE, logRecords.get(1).getLevel());
 		Assert.assertEquals(Level.SEVERE, logRecords.get(2).getLevel());
+	}
+	
+	@Test public void testConversion(){
+		String s = "http://foo.com/123";
+		Object uri = GroovityObjectConverter.convert(s, URI.class);
+		Assert.assertTrue(uri instanceof URI);
+		Assert.assertEquals("foo.com", ((URI)uri).getHost());
+		Assert.assertNull(GroovityObjectConverter.convert("", URI.class));
+		Date d = (Date) GroovityObjectConverter.convert("12345", Date.class);
+		Assert.assertEquals(12345, d.getTime());
+		Date d2 = (Date) GroovityObjectConverter.convert(67890, Date.class);
+		Assert.assertEquals(67890, d2.getTime());
+		Assert.assertNull(GroovityObjectConverter.convert("", Date.class));
 	}
 	
 	protected String run(String path, Binding binding) throws InstantiationException, IllegalAccessException, ClassNotFoundException, IOException{

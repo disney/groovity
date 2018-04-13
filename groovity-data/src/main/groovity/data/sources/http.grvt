@@ -21,21 +21,138 @@
  * KIND, either express or implied. See the Apache License for the specific
  * language governing permissions and limitations under the Apache License.
  *******************************************************************************/
+ 
+import com.disney.groovity.data.StorePayload
+import org.apache.http.HttpResponse
 
+/**
+ * The http data source supports the following configuration options on types that leverage it
+ *
+ * http.baseUrl = a base url that can have an id appended to it for GET/PUT/DELETE, or can handle a POST directly
+ * http.contentType = customize the serialization format for PUT/POST; defaults to application/json, can be changed to application/xml
+ * http.decorator = path to a groovity script that will decorate the http requests, e.g. with signature() or credentials() or custom header()
+ */
+  
 static Map conf=[
 	'http.timeout':60
 ]
 
 @CompileStatic
 @Function(info="Look up one or more maps of data from http urls; best effort is made to determine whether data is json or xml")
-public void call(Map<String,Object> map, Map conf){
+public void call(Map<String,Object> map, Map typeConf){
 	map.each{ entry ->
 		entry.value = async{
-			def result = http(url:entry.key, timeout:conf.get('http.timeout'))
+			def result = http(url:getUrl(entry.key, typeConf), timeout:conf.get('http.timeout')){
+				decorate(typeConf)
+				handler{ resp ->
+					HttpResponse httpResponse = (HttpResponse) resp
+					switch(httpResponse.statusLine.statusCode){
+						case 200:
+							return parse(value: httpResponse)
+						case 404:
+							return null
+						default:
+							log(error:"Error ${httpResponse.statusLine} executing HTTP call to ${getUrl(entry.key, typeConf)}:  ")
+							return null
+					}
+				}
+			}
 			if(result instanceof String || result instanceof byte[]){
 				result = parse(value:result)
 			}
 			result
+		}
+	}
+}
+
+@CompileStatic
+String getUrl(String key, Map typeConf){
+	if(typeConf.containsKey('http.baseUrl')){
+		StringBuilder builder = new StringBuilder(typeConf['http.baseUrl'].toString())
+		if(key!=null){
+			if(builder.charAt(builder.length()-1) == '/'){
+				if(key.startsWith('/')){
+					builder.append(key,1,key.length()-1)
+				}
+				else{
+					builder.append(key)
+				}
+			}
+			else{
+				if(key.startsWith('/')){
+					builder.append(key)
+				}
+				else{
+					builder.append('/').append(key)
+				}
+			}
+		}
+		return builder.toString()
+	}
+	key
+}
+
+@CompileStatic
+private void decorate(Map typeConf){
+	if(typeConf.containsKey('http.decorator')){
+		run(typeConf['http.decorator'].toString())
+	}
+}
+
+@CompileStatic
+public String store(String id, StorePayload payload, Map typeConf){
+	def contentType = typeConf['http.contentType'] ?: 'application/json'
+	if(id){
+		//PUT
+		http(method:'PUT', url: getUrl(id, typeConf), data: payload.data, timeout:conf.get('http.timeout')){
+			decorate(typeConf)
+			header(name:'Content-Type', value: contentType)
+			handler{ resp ->
+				HttpResponse httpResponse = (HttpResponse) resp
+				if(httpResponse.statusLine.statusCode != 200){
+					throw new RuntimeException("EXPECTED 200 RESPONSE BUT GOT ${httpResponse.statusLine}")
+				}
+			}
+		}
+	}
+	else{
+		String baseUrl = typeConf['http.baseUrl']?.toString()
+		if(!baseUrl){
+			throw new RuntimeException("storing HTTP objects requires using a URL or providing 'http.baseUrl' in the type conf")
+		}
+		//POST
+		http(method:'POST', url: baseUrl, data: payload.data, timeout:conf.get('http.timeout')){
+			decorate(typeConf)
+			header(name:'Content-Type', value: contentType)
+			handler{ resp ->
+				HttpResponse httpResponse = (HttpResponse) resp
+				if(httpResponse.statusLine.statusCode != 201){
+					throw new RuntimeException("EXPECTED 201 RESPONSE BUT GOT ${httpResponse.statusLine}")
+				}
+				String loc = httpResponse.getFirstHeader('Location').value
+				if(!loc){
+					throw new RuntimeException("EXPECTED LOCATION HEADER")
+				}
+				loc = loc.substring(baseUrl.length())
+				if(loc.startsWith('/')){
+					loc = loc.substring(1)
+				}
+				id = loc
+			}
+		}
+	}
+	id
+}
+
+@CompileStatic
+public void delete(String id, Map typeConf){
+	http(method:'DELETE', url: getUrl(id, typeConf), timeout:conf.get('http.timeout')){
+		decorate(typeConf)
+		handler{ resp ->
+			HttpResponse httpResponse = (HttpResponse) resp
+			if(httpResponse.statusLine.statusCode != 200){
+				throw new RuntimeException("EXPECTED 200 RESPONSE BUT GOT ${httpResponse.statusLine}")
+			}
 		}
 	}
 }

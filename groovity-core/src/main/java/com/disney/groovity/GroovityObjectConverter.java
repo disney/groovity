@@ -27,6 +27,7 @@ import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.util.Date;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -154,6 +155,15 @@ public class GroovityObjectConverter {
 		if(out.equals(String.class)) {
 			return in.toString();
 		}
+		if(Date.class.isAssignableFrom(out)) {
+			if(!(in instanceof Number)) {
+				in = convert(in,Long.class);
+				if(in==null) {
+					return null;
+				}
+			}
+			return new Date(((Number)in).longValue());
+		}
 		if(out.isArray()){
 			Object val = convert(in,out.getComponentType());
 			if(val!=null){
@@ -244,9 +254,20 @@ public class GroovityObjectConverter {
 			consume(in, consumer);
 			return finalResult;
 		}
-		//TODO special handling for string inputs, look for string-based constructors
 		if(!out.isPrimitive() && !out.isInterface()) {
 			try {
+				if(in instanceof CharSequence) {
+					//treat empty string as null
+					if(((CharSequence)in).length()==0) {
+						return null;
+					}
+					//special handling for string inputs, look for string-based constructors
+					try {
+						Constructor<?> c = out.getConstructor(String.class);
+						return c.newInstance(in.toString());
+					}
+					catch(Exception e) {}
+				}
 				Constructor<?> c = out.getConstructor();
 				Object o = c.newInstance();
 				if(o instanceof Model) {

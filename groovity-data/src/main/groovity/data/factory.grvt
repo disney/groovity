@@ -180,8 +180,8 @@ private final List<DataModel> _doLookupIds(String type, String... ids){
 					}
 					if(obj instanceof Map){
 						DataModel domainObj = (DataModel) targetScript.run()
-						domainObj.pointer = new Pointer(type,entry.key)
 						domainObj.ingest((Map<String,Object>) obj)
+						domainObj.pointer = new Pointer(type,entry.key)
 						return domainObj
 					}
 					DataModel domainObj = new DataModelImpl(obj)

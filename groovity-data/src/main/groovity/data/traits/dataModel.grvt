@@ -40,10 +40,9 @@ trait DataModel implements Model, Ingest{
 	
 	@CompileStatic
 	public boolean ingest(String key, Object val){
-		if(key=='pointer' && val instanceof Map){
-			Pointer p  = new Pointer()
-			p.putAll(val)
-			val = p
+		if(key=='pointer'){
+			//we don't ingest the pointer from raw data, the factory controls it; but we swallow it so other traits don't try to process it
+			return true
 		}
 		put(key,val)
 	}
