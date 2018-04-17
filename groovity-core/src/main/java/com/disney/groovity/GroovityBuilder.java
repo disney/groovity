@@ -306,9 +306,6 @@ public class GroovityBuilder {
 		}
 		groovity.setHttpClient(httpClientBuilder.build());
 		List<GroovitySourceLocator> locators = new ArrayList<GroovitySourceLocator>();
-		if((sourceLocations==null || sourceLocations.isEmpty()) && (sourceLocators==null || sourceLocators.isEmpty()) && jarDirectory==null){
-			throw new IllegalArgumentException("No groovity source locators or jar directories configured");
-		}
 		if(sourceLocators!=null){
 			for(GroovitySourceLocator locator: sourceLocators){
 				locators.add(locator);
