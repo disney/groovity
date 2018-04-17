@@ -21,7 +21,7 @@
  * KIND, either express or implied. See the Apache License for the specific
  * language governing permissions and limitations under the Apache License.
  *******************************************************************************/
-package com.disney.groovity.tags;
+package com.disney.groovity.websocket;
 
 import java.io.IOException;
 import java.io.StringWriter;
@@ -70,9 +70,12 @@ import com.disney.groovity.GroovityConstants;
 import com.disney.groovity.Taggable;
 import com.disney.groovity.doc.Attr;
 import com.disney.groovity.doc.Tag;
+import com.disney.groovity.tags.Credentials;
 import com.disney.groovity.tags.Credentials.UserPass;
+import com.disney.groovity.tags.Handler;
+import com.disney.groovity.tags.Signature;
+import com.disney.groovity.tags.Uri;
 import com.disney.groovity.util.ScriptHelper;
-import com.disney.groovity.util.WebSocket;
 import com.disney.http.auth.AuthConstants;
 import com.disney.http.auth.AuthorizationRequest;
 import com.disney.http.auth.DigestAuthorization;

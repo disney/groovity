@@ -54,7 +54,7 @@ import com.disney.groovity.servlet.auth.VerifierFactory;
 import com.disney.groovity.servlet.cors.CORSFactory;
 import com.disney.groovity.servlet.error.GroovityErrorHandlerChain;
 import com.disney.groovity.servlet.uri.PathTemplate;
-import com.disney.groovity.util.WebSocket;
+import com.disney.groovity.websocket.WebSocket;
 
 /**
  * GroovityScriptViewFactory is responsible for registering GroovityScriptViews in sync with an underlying Groovity used for compiling application sources.

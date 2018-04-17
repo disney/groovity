@@ -61,6 +61,7 @@
 		<module>uri-parcel</module>
 		<module>http-auth</module>
 		<module>groovity-core</module>
+		<module>groovity-websocket</module>
 		<module>groovity-servlet</module>
 		<module>groovity-error-page</module>
 		<module>groovity-servlet-admin</module>

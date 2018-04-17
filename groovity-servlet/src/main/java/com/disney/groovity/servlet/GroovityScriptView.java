@@ -60,7 +60,7 @@ import com.disney.groovity.servlet.error.GroovityError;
 import com.disney.groovity.servlet.error.GroovityErrorHandlerChain;
 import com.disney.groovity.servlet.uri.PathTemplate;
 import com.disney.groovity.util.ScriptHelper;
-import com.disney.groovity.util.WebSocket;
+import com.disney.groovity.websocket.WebSocket;
 import com.disney.http.auth.AuthConstants;
 import com.disney.http.auth.server.AuthenticatedRequestWrapper;
 import com.disney.http.auth.server.ServletAuthorizationRequest;

@@ -31,7 +31,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.websocket.Session;
 
 import com.disney.groovity.ArgsLookup;
-import com.disney.groovity.util.WebSocket;
+import com.disney.groovity.websocket.WebSocket;
 
 /**
  * An ArgsLookup implementation that resolves arguments from an HttpServletRequest bound to "request",

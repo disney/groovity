@@ -37,7 +37,7 @@ import javax.websocket.Session;
 import javax.websocket.server.HandshakeRequest;
 import javax.websocket.server.ServerEndpointConfig;
 
-import com.disney.groovity.util.WebSocket;
+import com.disney.groovity.websocket.WebSocket;
 
 /**
  * A java websocket endpoint shim that captures all single-path-element web socket requests and

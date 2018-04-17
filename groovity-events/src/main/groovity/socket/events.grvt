@@ -22,7 +22,7 @@
  * language governing permissions and limitations under the Apache License.
  *******************************************************************************/
 import com.disney.groovity.util.AsyncChannel
-import com.disney.groovity.util.WebSocket
+import com.disney.groovity.websocket.WebSocket
 
 static web=[
 	socket:'events',
