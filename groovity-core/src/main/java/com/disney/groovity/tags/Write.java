@@ -38,6 +38,7 @@ import com.disney.groovity.doc.Tag;
 import com.disney.groovity.model.ModelFilter;
 import com.disney.groovity.model.ModelWalker;
 import com.disney.groovity.model.ModelJsonWriter;
+import com.disney.groovity.model.ModelTemplateWriter;
 import com.disney.groovity.model.ModelXmlWriter;
 import com.disney.groovity.util.HtmlEscapingWriter;
 import com.disney.groovity.util.JsonEscapingWriter;
@@ -58,7 +59,7 @@ import groovy.lang.Writable;
  * 	<li><i>var</i>: 
  *	The variable name to store the destination of the write operation, as specified by 'to',</li>	
  *	<li><i>format</i>: 
- *	'xml', 'json' or a java String Format to serialize the value, json is default, or body can be used to generate raw characters</li>	
+ *	'xml' or 'json' for writing structured data (json is default), '~' to use templates found in the value or injected by ModelFilters, or a java String Format to serialize the value, or body can be used to generate raw characters,</li>	
  *	<li><i>pretty</i>: 
  *	pretty print json or xml,</li>	
  *	<li><i>null</i>: 
@@ -94,7 +95,7 @@ import groovy.lang.Writable;
 		attrs={ 
 				@Attr(name=GroovityConstants.VALUE,required=false,info="The object or collection to be written"),
 				@Attr(name=GroovityConstants.VAR,required=false,info="The variable name to store the destination of the write operation, as specified by 'to'"),
-				@Attr(name="format",required=false,info="'xml', 'json' or a java String Format to serialize the value, json is default, or body can be used to generate raw characters"),
+				@Attr(name="format",required=false,info="'xml' or 'json' for writing structured data (json is default), '~' to use templates found in the value or injected by ModelFilters, or a java String Format to serialize the value, or body can be used to generate raw characters"),
 				@Attr(name="pretty",required=false,info="pretty print json or xml"),
 				@Attr(name="null",required=false,info="value to display for null, defaults to empty string"),
 				@Attr(name="escape",required=false,info="escape the output as one of (xml|html|json)"),
@@ -171,7 +172,7 @@ public class Write implements Taggable{
 			}
 		}
 		if(value!=null){
-			if(format!=null && !"json".equals(format) && !"xml".equals(format)){
+			if(format!=null && !"json".equals(format) && !"xml".equals(format) && !"~".equals(format)){
 				//we don't want to close the formatter because it's not our job to close the writer
 				Formatter formatter = new Formatter(writer);
 				if(value instanceof Collection){
@@ -221,6 +222,9 @@ public class Write implements Taggable{
 						if(prefixes!=null) {
 							((ModelXmlWriter)mw).setNamespacePrefixes(prefixes);
 						}
+					}
+					else if("~".equals(format)) {
+						mw = new ModelTemplateWriter(writer);
 					}
 					else {
 						if(pretty!=null && ((Boolean)pretty).booleanValue()){

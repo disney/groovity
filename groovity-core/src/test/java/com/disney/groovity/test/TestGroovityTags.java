@@ -521,6 +521,12 @@ public class TestGroovityTags {
 	public void testWriteXml() throws Exception{
 		run("/writeXml");
 	}
+	
+	@Test
+	public void testWriteTemplates() throws Exception{
+		run("/writeTemplates");
+	}
+	
 	@Test
 	public void testParseXml() throws Exception{
 		run("/parseXml");
