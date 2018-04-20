@@ -33,6 +33,8 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.codehaus.groovy.runtime.typehandling.DefaultTypeTransformation;
 
@@ -46,6 +48,7 @@ import com.disney.groovity.model.ModelConsumer;
  * @author Alex Vigdor
  */
 public class GroovityObjectConverter {
+	private static final Logger log = Logger.getLogger(GroovityObjectConverter.class.getName());
 	@SuppressWarnings("rawtypes")
 	private static class ArrayIterable implements Iterable{
 		final private Object arr;
@@ -178,43 +181,47 @@ public class GroovityObjectConverter {
 			Enum val = Enum.valueOf((Class<Enum>) out, in.toString());
 			return val;
 		}
-		if(!Number.class.isAssignableFrom(in.getClass())){
-			if(Number.class.isAssignableFrom(out)){
-				String ps = getParseable(in);
-				if(ps==null){
-					return null;
-				}
-				//groovy can only convert single digit number strings for some odd reason, so we have to roll our own
-				if(Integer.class.isAssignableFrom(out)){
-					return Integer.parseInt(ps);
-				}
-				if(Long.class.isAssignableFrom(out)){
-					return Long.parseLong(ps);
-				}
-				if(Float.class.isAssignableFrom(out)){
-					return Float.parseFloat(ps);
-				}
-				if(Double.class.isAssignableFrom(out)){
-					return Double.parseDouble(ps);
-				}
+		if(Number.class.isAssignableFrom(out)){
+			if(Number.class.isAssignableFrom(in.getClass())) {
+				return DefaultTypeTransformation.castToType(in, out);
 			}
-			if(out.isPrimitive()){
-				String ps = getParseable(in);
-				if(ps==null){
-					return null;
-				}
-				if(out.equals(Integer.TYPE)){
-					return Integer.parseInt(ps);
-				}
-				if(out.equals(Long.TYPE)){
-					return Long.parseLong(ps);
-				}
-				if(out.equals(Float.TYPE)){
-					return Float.parseFloat(ps);
-				}
-				if(out.equals(Double.TYPE)){
-					return Double.parseDouble(ps);
-				}
+			String ps = getParseable(in);
+			if(ps==null){
+				return null;
+			}
+			//groovy can only convert single digit number strings for some odd reason, so we have to roll our own
+			if(Integer.class.isAssignableFrom(out)){
+				return Integer.parseInt(ps);
+			}
+			if(Long.class.isAssignableFrom(out)){
+				return Long.parseLong(ps);
+			}
+			if(Float.class.isAssignableFrom(out)){
+				return Float.parseFloat(ps);
+			}
+			if(Double.class.isAssignableFrom(out)){
+				return Double.parseDouble(ps);
+			}
+		}
+		if(out.isPrimitive()){
+			if(Number.class.isAssignableFrom(in.getClass())) {
+				return DefaultTypeTransformation.castToType(in, out);
+			}
+			String ps = getParseable(in);
+			if(ps==null){
+				return null;
+			}
+			if(out.equals(Integer.TYPE)){
+				return Integer.parseInt(ps);
+			}
+			if(out.equals(Long.TYPE)){
+				return Long.parseLong(ps);
+			}
+			if(out.equals(Float.TYPE)){
+				return Float.parseFloat(ps);
+			}
+			if(out.equals(Double.TYPE)){
+				return Double.parseDouble(ps);
 			}
 		}
 		if(Boolean.class.equals(out) || out == Boolean.TYPE){
@@ -282,7 +289,7 @@ public class GroovityObjectConverter {
 				return o;
 			}
 			catch(Exception e) { 
-				//e.printStackTrace();
+				log.log(Level.WARNING, "Error converting "+in.getClass().getName()+" to "+out.getName(), e);
 			}
 		}
 		return DefaultTypeTransformation.castToType(in,out);

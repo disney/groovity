@@ -231,3 +231,10 @@ assert parsed.item == ['1','2','3'] as String[]
 assert parsed.keywords == "foo bar"
 assert parsed.letters == "a b c"
 assert parsed.bin.vals ==  ['<','>','&','"',"'"] as String[]
+
+parsed = parse{'''
+<a>foo<b>bar<c>abc</c>xyz</b>123</a>
+'''}
+
+rt = write(value:parsed, to:"")
+assert rt=='{"text":["foo","123"],"b":{"text":["bar","xyz"],"c":"abc"}}'

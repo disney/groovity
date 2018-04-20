@@ -501,6 +501,12 @@ public class ModelXmlWriter extends ModelWalker{
 	}
 	
 	protected void writeTag(String name, Object value, Consumer<Object> body) throws Exception {
+		int s = name.lastIndexOf("/");
+		int h = name.lastIndexOf("#");
+		if(s!=-1 || h!=-1) {
+			int l = s>h?s:h;
+			name = getTagName(name.substring(0, l+1), name.substring(l+1));
+		}
 		delimit();
 		writer.write('<');
 		writer.write(name);

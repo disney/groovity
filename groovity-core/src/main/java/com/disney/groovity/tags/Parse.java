@@ -29,10 +29,6 @@ import groovy.lang.GroovySystem;
 import groovy.lang.MetaClass;
 import groovy.lang.MetaProperty;
 import groovy.lang.Writable;
-import groovy.util.XmlSlurper;
-import groovy.util.slurpersupport.GPathResult;
-import groovy.util.slurpersupport.Node;
-import groovy.util.slurpersupport.NodeChild;
 
 import java.io.BufferedReader;
 import java.io.CharArrayWriter;
@@ -42,36 +38,28 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.StringReader;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Queue;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 import javax.xml.bind.JAXBContext;
 import javax.xml.bind.JAXBException;
 import javax.xml.bind.Unmarshaller;
 import javax.xml.bind.annotation.XmlRootElement;
-import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.sax.SAXSource;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.xml.sax.InputSource;
-import org.xml.sax.SAXException;
 import org.xml.sax.XMLReader;
-import org.xml.sax.helpers.XMLReaderFactory;
 
 import com.disney.groovity.GroovityConstants;
 import com.disney.groovity.Taggable;
 import com.disney.groovity.doc.Attr;
 import com.disney.groovity.doc.Tag;
 import com.disney.groovity.model.Model;
+import com.disney.groovity.util.XmlParser;
 /**
  * Will parse JSON or XML from a variety of sources, sometimes type can be inferred and when not use the type parameter
  * <p>
@@ -116,7 +104,6 @@ import com.disney.groovity.model.Model;
 )
 public class Parse implements Taggable {
 	private static final Pattern charsetPattern = Pattern.compile("(?i)(?<=charset=)([^;,\\r\\n]+)");
-	private static final Queue<XMLReader> xmlReaderCache = new ArrayBlockingQueue<>(Runtime.getRuntime().availableProcessors()*4);
 	//TODO wire this in so we can clean out contexts for classes that get compiled away at runtime to avoid leakage
 	private static final ConcurrentHashMap<Class<?>, JAXBContext> jaxbContextCache = new ConcurrentHashMap<>();
 	
@@ -264,21 +251,18 @@ public class Parse implements Taggable {
 				if(usejaxb) {
 					JAXBContext context = getJAXBContext(target.getClass());
 					Unmarshaller um = context.createUnmarshaller();
-					XMLReader xreader = borrowXMLReader();
+					XMLReader xreader = XmlParser.borrowXMLReader();
 					try {
 						result = um.unmarshal(new SAXSource(xreader, new InputSource(reader)));
 					}
 					finally {
-						returnXMLReader(xreader);
+						XmlParser.returnXMLReader(xreader);
 						reader.close();
 					}
 				}
 				else {
-					XMLReader xreader = borrowXMLReader();
 					try {
-						XmlSlurper slurper = new XmlSlurper(xreader);
-						GPathResult gpr = slurper.parse(reader);
-						Object converted = convert(gpr);
+						Object converted = XmlParser.parseXML(reader);
 						if(!target.equals(Object.class)) {
 							if(target instanceof Model) {
 								Model.each(converted, ((Model)target)::put);
@@ -294,7 +278,6 @@ public class Parse implements Taggable {
 						}
 					}
 					finally{
-						returnXMLReader(xreader);
 						reader.close();
 					}
 				}
@@ -323,71 +306,5 @@ public class Parse implements Taggable {
 		}
 		return result;
 	}
-	protected static XMLReader borrowXMLReader() throws ParserConfigurationException, SAXException{
-		XMLReader reader = xmlReaderCache.poll();
-		if(reader ==null){
-			reader = XMLReaderFactory.createXMLReader();
-		}
-		return reader;
-	}
 	
-	protected static void returnXMLReader(XMLReader reader){
-		xmlReaderCache.offer(reader);
-	}
-	
-	@SuppressWarnings({ "rawtypes", "unchecked" })
-	protected static Object convert(GPathResult node){
-		if(!node.childNodes().hasNext() && (node instanceof NodeChild) && ((NodeChild)node).attributes().isEmpty()){
-			return ((NodeChild)node).localText().stream().collect(Collectors.joining( "\n" ));
-		}
-		Map model = new LinkedHashMap<>();
-		node.childNodes().forEachRemaining( child ->{
-			handleChildNode(model, (Node)child);
-		});
-		if(node instanceof NodeChild){
-			((NodeChild)node).attributes().forEach( (k, v) -> {
-				model.put(k.toString(),v.toString());
-			});
-			if(!((NodeChild)node).localText().isEmpty()){
-				model.put("text",((NodeChild)node).localText().stream().collect(Collectors.joining( "\n" )));
-			}
-		}
-		return model;
-	}
-	
-	@SuppressWarnings({ "rawtypes", "unchecked" })
-	protected static void handleChildNode(Map model, Node child){
-		Object childModel = convert(child);
-		Object dest = model.get(child.name());
-		if(dest==null){
-			model.put(child.name(),childModel);
-		}
-		else if(dest instanceof List){
-			((List)dest).add(childModel);
-		}
-		else{
-			List ndest = new ArrayList<>();
-			ndest.add(dest);
-			ndest.add(childModel);
-			model.put(child.name(),ndest);
-		}
-	}
-
-	@SuppressWarnings({ "rawtypes", "unchecked" })
-	protected static Object convert(Node node){
-		if(!node.childNodes().hasNext() && node.attributes().isEmpty()){
-			return node.localText().stream().collect(Collectors.joining( "\n" ));
-		}
-		Map model = new LinkedHashMap<>();
-		node.childNodes().forEachRemaining( child ->{
-			handleChildNode(model,(Node)child);
-		});
-		node.attributes().forEach((k, v) -> {
-			model.put(k.toString(),v.toString());
-		});
-		if(!node.localText().isEmpty()){
-			model.put("text",node.localText().stream().collect(Collectors.joining( "\n" )));
-		}
-		return model;
-	}
 }
