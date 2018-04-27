@@ -66,6 +66,14 @@ future = http(url:"http://localhost:28197/someEndpoint",method:"PUT",async:true,
 
 out << ";${future.get()}";
 
+http(method:'PUT', url:'http://localhost:28197/myput', data: [abc:123]){
+  header(name:'Content-Type',value:'application/json')
+}
+
+http(method:'PUT', url:'http://localhost:28197/myput', data: write(value:[abc:123],to:"")){
+  header(name:'Content-Type',value:'application/json')
+}
+
 static foo(){
 	http([var:"resp", url:"http://localhost:28197/mypost", method:"POST", data:['a':'b','c':'d']],{
 		header(name:"Content-Type",value:"application/x-www-form-urlencoded")

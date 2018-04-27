@@ -344,6 +344,14 @@ public class TestGroovityTags {
 						.withHeader("Last-Modified", "100")
 						.withHeader("Content-Type", "application/xml")
 						.withBody("<doc><status>xmlOK</status><other>whatever</other></doc>")));
+		stubFor(put(urlEqualTo("/myput"))
+				.withHeader("Content-Type", matching("application/json"))
+				.withRequestBody(equalToJson("{\"abc\":123}"))
+				.willReturn(aResponse()
+						.withStatus(200)
+						.withHeader("Last-Modified", "100")
+						.withHeader("Content-Type", "application/xml")
+						.withBody("<doc><status>xmlOK</status><other>whatever</other></doc>")));
 		wireMockRule.addMockServiceRequestListener(new RequestListener() {
 			
 			public void requestReceived(Request req, Response res) {

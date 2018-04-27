@@ -371,6 +371,23 @@ public class Http implements Taggable {
 					if(data instanceof HttpEntity){
 						dataEntity = (HttpEntity) data;
 					}
+					else if(data instanceof CharSequence) {
+						if(targetType!=null) {
+							dataEntity = new StringEntity(data.toString(), targetType);
+						}
+						else {
+							dataEntity = new StringEntity(data.toString(), "UTF-8");
+						}
+					}
+					else if(data instanceof byte[]) {
+						dataEntity = new ByteArrayEntity((byte[])data, targetType);
+					}
+					else if(data instanceof File) {
+						dataEntity = new FileEntity((File)data, targetType);
+					}
+					else if (data instanceof InputStream) {
+						dataEntity = new InputStreamEntity((InputStream)data, targetType);
+					}
 					else{
 						//look at content type for a hint
 						if(targetType!=null && targetType.getMimeType().contains("json")){
@@ -390,10 +407,6 @@ public class Http implements Taggable {
 							}
 							else if(data instanceof Document){
 								dataEntity = new StringEntity(XmlUtil.serialize(((Document)data).getDocumentElement()), targetType);
-							}
-							else if(data instanceof CharSequence){
-								//if it's a string assume a well formed XML string
-								dataEntity = new StringEntity(data.toString(), targetType);
 							}
 							else {
 								CharArrayWriter caw = new CharArrayWriter();
