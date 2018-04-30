@@ -112,3 +112,11 @@ assert s2.hasAuthors()
 s2.store()
 factory.invalidate('story','40')
 assert factory('story','40').hasAuthors()
+
+def ns = factory('story')
+ns.pointer.id = '999'
+ns.title="Hello goodbye"
+ns.store()
+
+def ns2 = factory('story','999')
+assert ns2.title == ns.title

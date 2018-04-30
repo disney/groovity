@@ -42,6 +42,7 @@ public class AttachmentCollector extends ModelCollector {
 	public void visitObject(Object o) throws Exception{
 		if(o instanceof Attachment) {
 			attachments.add((Attachment)o);
+			o = ((Attachment)o).describe();
 		}
 		super.visitObject(o);
 	}

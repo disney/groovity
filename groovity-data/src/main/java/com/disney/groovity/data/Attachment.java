@@ -67,7 +67,7 @@ public abstract class Attachment implements Model {
 			this.attributes = new LinkedHashMap<>(copyFrom.attributes);
 		}
 	}
-	
+
 	@Override
 	public void each(ModelConsumer c) {
 		Model.each(this, c);
@@ -76,6 +76,18 @@ public abstract class Attachment implements Model {
 				c.call(entry.getKey(), entry.getValue());
 			}
 		}
+	}
+
+	public Map<String,Object> describe() {
+		Map<String,Object> map = new LinkedHashMap<>();
+		map.put("name", name);
+		map.put("contentType", contentType);
+		map.put("length", length);
+		map.put("modified", modified);
+		if(attributes!=null) {
+			map.putAll(attributes);
+		}
+		return map;
 	}
 
 	@Override
