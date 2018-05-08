@@ -75,7 +75,15 @@ img.derived = [
 	 	)
 ]
 img.pointer.id = "mySampleImage"
+assert img.original.md5 == null
+assert img.original.modified == null
 img.store()
+assert img.original.md5 != null
+assert img.original.modified != null
+assert img.original.copyright == 'Jim Bob'
+
+def firstModified = img.original.modified
+
 try{
 	def rt = factory(img.pointer)
 	
@@ -87,7 +95,58 @@ try{
 	
 	def d2Bytes = rt.derived[1].inputStream.bytes
 	assert d2Bytes == ([33,35,37,39] as byte[])
+	
+	rt.original.copyright = 'Bob James'
+	parse(value: write(value:rt,to:'',filter:ModelFilter.exclude(File.class)), to: rt)
+	assert rt.original.copyright == 'Bob James'
+	
+	assert rt.original.inputStream == null
+	
+	rt.store()
 
+	rt = factory(img.pointer)
+	
+	assert rt.original.copyright == 'Bob James'
+	origBytes = rt.original.inputStream.bytes
+	assert origBytes == ([11,13,15,17,19,21,23] as byte[])
+	assert rt.original.modified == firstModified
+	assert rt.original.length == 7
+	assert rt.original.md5 == img.original.md5
+	
+	rt.original.copyright = 'Robert Jim'
+	rt.store()
+	
+	rt = factory(img.pointer)
+	
+	assert rt.original.copyright == 'Robert Jim'
+	origBytes = rt.original.inputStream.bytes
+	assert origBytes == ([11,13,15,17,19,21,23] as byte[])
+	assert rt.original.modified == firstModified
+	assert rt.original.length == 7
+	assert rt.original.md5 == img.original.md5
+	
+	rt.original = new Attachment.Bytes(rt.original)
+	rt.original.bytes =  ([25,27,29,31,33,35] as byte[])
+	rt.store()
+	
+	rt = factory(img.pointer)
+	assert rt.original.copyright == 'Robert Jim'
+	origBytes = rt.original.inputStream.bytes
+	assert origBytes == ([25,27,29,31,33,35]  as byte[])
+	assert rt.original.modified >= firstModified
+	assert rt.original.length == 6
+	assert rt.original.md5 != img.original.md5
+	
+	File d2 = new File('target/images/mySampleImage_/d2.jpg')
+	
+	assert d2.exists()
+	
+	rt.derived = rt.derived[0..0]
+	
+	rt.store()
+	
+	assert !d2.exists()
+	
 	assert latch.await(2,TimeUnit.SECONDS)
 }
 finally{

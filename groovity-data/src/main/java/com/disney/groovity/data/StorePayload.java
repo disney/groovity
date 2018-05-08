@@ -23,9 +23,15 @@
  *******************************************************************************/
 package com.disney.groovity.data;
 
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 
 import com.disney.groovity.model.Model;
+import com.disney.groovity.model.ModelFilter;
 /**
  * Capture loosely structured data and associated attachments for storage
  *
@@ -33,34 +39,44 @@ import com.disney.groovity.model.Model;
  */
 public class StorePayload {
 	private Object data;
-	private List<Attachment> attachments;
+	private List<Attachment> attachmentsToStore = new ArrayList<>();
+	private List<String> attachmentsToDelete = new ArrayList<>();
 	
-	public StorePayload(){}
-	
-	public StorePayload(Model m) throws Exception{
+	public StorePayload(Model m, List<ModelFilter> filters, Object previous) throws Exception{
 		AttachmentCollector ac = new AttachmentCollector();
+		ac.setFilters(filters.toArray(new ModelFilter[0]));
 		ac.visit(m);
+		Map<String, Attachment> newAttachments = ac.getAttachments();
 		data = ac.getCollected();
-		attachments = ac.getAttachments();
-	}
-	
-	public StorePayload(Object data, List<Attachment> attachments){
-		this.data=data;
-		this.attachments=attachments;
+		if(previous != null) {
+			AttachmentCollector pc = new AttachmentCollector();
+			pc.visit(previous);
+			Map<String, Attachment> oldAttachments = pc.getAttachments();
+			for(Iterator<Entry<String, Attachment>> iter = newAttachments.entrySet().iterator(); iter.hasNext();) {
+				Entry<String, Attachment> newAttachmentEntry = iter.next();
+				Attachment oldAttachment = oldAttachments.remove(newAttachmentEntry.getKey());
+				if(oldAttachment!=null && oldAttachment.getMd5()!=null && newAttachmentEntry.getValue().getMd5().equals(oldAttachment.getMd5())) {
+					//hashes match, we'll skip storing the binary payload
+					iter.remove();
+				}
+			}
+			//any remaining old attachment keys should be deleted
+			attachmentsToDelete.addAll(oldAttachments.keySet());
+		}
+		//store all new attachments that weren't reconciled out, and that are real attachment implementations
+		newAttachments.values().stream().filter(a->{return !a.getClass().equals(Attachment.class);}).forEach(attachmentsToStore::add);
 	}
 	
 	public Object getData() {
 		return data;
 	}
-	public void setData(Object data) {
-		this.data = data;
+
+	public List<Attachment> getAttachmentsToStore() {
+		return attachmentsToStore;
 	}
-	public List<Attachment> getAttachments() {
-		return attachments;
+
+	public List<String> getAttachmentsToDelete() {
+		return attachmentsToDelete;
 	}
-	public void setAttachments(List<Attachment> attachments) {
-		this.attachments = attachments;
-	}
-	
-	
+
 }

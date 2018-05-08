@@ -46,9 +46,10 @@ public void call(Map<String,Object> map, Map conf){
 @CompileStatic
 @Function(info="Add one or more objects to the memory data layer")
 public String store(String id, Object data){
-	StorePayload sp = new StorePayload()
-	sp.data = data
-	store(id,sp,null)
+	MemoryData md = new MemoryData()
+	md.dataObject = data
+	md.updateTime = System.currentTimeMillis()
+	dataObjects.put(id,md)
 }
 
 @CompileStatic
@@ -60,15 +61,20 @@ public String store(String id, StorePayload payload, Map conf){
 			id = UUID.randomUUID().toString();
 		}
 	}
-	List<Attachment> atts = payload.attachments
+	Map<String,Attachment> reconciledAttachments = (Map<String,Attachment>) dataObjects.get(id)?.dataAttachments?.collectEntries{[it.name, it]} ?: [:]
+	payload.attachmentsToDelete?.each{
+		reconciledAttachments.remove(it)
+	}
+	List<Attachment> atts = payload.attachmentsToStore
 	MemoryData md = new MemoryData()
 	md.dataObject = payload.data
 	md.updateTime = System.currentTimeMillis()
 	if(atts){
-		//copy attachments into memory
-		List<Attachment> attList = (List<Attachment>) atts.collect{ new Attachment.Bytes(it) }
-		md.dataAttachments = attList
+		atts.each{
+			reconciledAttachments.put(it.name,  new Attachment.Bytes(it))
+		}
 	}
+	md.dataAttachments = new ArrayList(reconciledAttachments.values())
 	dataObjects.put(id,md)
 	id
 }

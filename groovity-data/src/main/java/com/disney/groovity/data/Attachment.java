@@ -29,6 +29,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.LinkedHashMap;
@@ -36,6 +37,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicReference;
+
+import javax.xml.bind.DatatypeConverter;
 
 import com.disney.groovity.model.Model;
 import com.disney.groovity.model.ModelConsumer;
@@ -49,12 +52,13 @@ import com.disney.groovity.model.ModelWalker;
  * @author Alex Vigdor
  *
  */
-public abstract class Attachment implements Model {
-	private String name;
-	private String contentType;
-	private Long length;
-	private Date modified;
-	private Map<String,Object> attributes;
+public class Attachment implements Model {
+	protected String name;
+	protected String contentType;
+	protected Long length;
+	protected Date modified;
+	protected String md5;
+	protected Map<String,Object> attributes;
 
 	public Attachment() {}
 	
@@ -63,6 +67,7 @@ public abstract class Attachment implements Model {
 		this.contentType = copyFrom.getContentType();
 		this.length = copyFrom.getLength();
 		this.modified = copyFrom.modified;
+		this.md5 = copyFrom.md5;
 		if(copyFrom.attributes!=null) {
 			this.attributes = new LinkedHashMap<>(copyFrom.attributes);
 		}
@@ -78,11 +83,19 @@ public abstract class Attachment implements Model {
 		}
 	}
 
+	public void set(String name, Object value) {
+		if(attributes == null) {
+			attributes = new LinkedHashMap<>();
+		}
+		attributes.put(name, value);
+	}
+
 	public Map<String,Object> describe() {
 		Map<String,Object> map = new LinkedHashMap<>();
 		map.put("name", name);
 		map.put("contentType", contentType);
 		map.put("length", length);
+		map.put("md5", md5);
 		map.put("modified", modified);
 		if(attributes!=null) {
 			map.putAll(attributes);
@@ -133,6 +146,36 @@ public abstract class Attachment implements Model {
 		this.modified = modified;
 	}
 
+	public String getMd5() {
+		return md5;
+	}
+
+	public void setMd5(String md5) {
+		this.md5 = md5;
+	}
+
+	public boolean calculateMd5() throws Exception {
+		MessageDigest digest = MessageDigest.getInstance("MD5");
+		try(InputStream in = getInputStream()){
+			if(in==null) {
+				return false;
+			}
+			byte[] buf = new byte[8192];
+			int c = 0;
+			while((c=in.read(buf))!=-1) {
+				digest.update(buf, 0, c);
+			}
+		}
+		byte[] d = digest.digest();
+		String m = DatatypeConverter.printBase64Binary(d);
+		if(md5==null || !md5.equals(m)) {
+			setMd5(m);
+			modified = new Date();
+			return true;
+		}
+		return false;
+	}
+
 	public Object get(String attribute) {
 		if(attributes!=null) {
 			return attributes.get(attribute);
@@ -148,7 +191,9 @@ public abstract class Attachment implements Model {
 		}
 	}
 
-	public abstract InputStream getInputStream() throws Exception;
+	public InputStream getInputStream() throws Exception{
+		return null;
+	}
 	
 	public static Attachment find(Object model, final String name) throws Exception {
 		AtomicReference<Attachment> a = new AtomicReference<>();
@@ -219,11 +264,27 @@ public abstract class Attachment implements Model {
 
 		public void setFile(java.io.File file) {
 			this.file = file;
-			if(file!=null){
-				setLength(file.length());
-				setName(file.getName());
-				setModified(new Date(file.lastModified()));
+		}
+
+		public Date getModified() {
+			if(modified==null && file!=null) {
+				modified = new Date(file.lastModified());
 			}
+			return modified;
+		}
+
+		public Long getLength() {
+			if(length==null && file!=null) {
+				length = file.length();
+			}
+			return length;
+		}
+
+		public String getName() {
+			if(name==null && file!=null) {
+				name = file.getName();
+			}
+			return name;
 		}
 	}
 	
@@ -237,7 +298,7 @@ public abstract class Attachment implements Model {
 		public Bytes(Attachment copyFrom) throws Exception {
 			super(copyFrom);
 			ByteArrayOutputStream baos = new ByteArrayOutputStream();
-			if(copyFrom.length>0) {
+			if(copyFrom.length!=null && copyFrom.length>0) {
 				InputStream in = copyFrom.getInputStream();
 				try {
 					byte[] buf = new byte[8192];

@@ -66,7 +66,7 @@ public String store(String id, StorePayload payload, Map conf){
 			id = UUID.randomUUID().toString();
 		}
 	}
-	List<Attachment> atts = payload.attachments
+	List<Attachment> atts = payload.attachmentsToStore
 	def data = payload.data
 	File file = getFile(id, conf)
 	if(!file.parentFile.exists()){
@@ -81,9 +81,9 @@ public String store(String id, StorePayload payload, Map conf){
 	}
 	File atDir = getDir("${id}_",conf)
 	if(atDir.isDirectory()){
-		File[] oldAttachments = atDir.listFiles()
-		if(oldAttachments){
-			oldAttachments.each{ ((File)it).delete() }
+		List<String> dels = payload.attachmentsToDelete
+		dels.each{
+			new File(atDir,it).delete()
 		}
 		if(!atts){
 			atDir.delete()
@@ -92,9 +92,12 @@ public String store(String id, StorePayload payload, Map conf){
 	else if(atts){
 		atDir.mkdirs()
 	}
-	atts.each{
-		File atFile = new File(atDir, it.name)
-		atFile << it.inputStream
+	atts.each{ att->
+		File atFile = new File(atDir, att.name)
+		atFile.createNewFile()
+		atFile.withOutputStream{ out ->
+			out << att.inputStream
+		}
 	}
 	id
 }

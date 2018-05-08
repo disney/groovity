@@ -132,6 +132,7 @@ private static Map validate(Map esMap){
 @Function(info="Add an object to an elasticsearch index. ")
 public String store(String key, StorePayload payload, Map typeConf){
 	Map data = (Map) payload.data
+	Closure versionCapture = (Closure) data.remove('_version_capture')
 	EsQueryString eqs = new EsQueryString(key,typeConf) 
 	eqs.version = (Long) data.remove('_version')
 	String method = eqs.idValue ? 'PUT' : 'POST'
@@ -164,7 +165,7 @@ public String store(String key, StorePayload payload, Map typeConf){
 	}
 	//log(info:"Stored ${result} at ${esUrl}")
 	eqs.idValue = result.get('_id')
-	data.put('_version',result.get('_version'))
+	versionCapture.call(result.get('_version'))
 	eqs.toString()
 }
 

@@ -57,14 +57,12 @@ trait IsElasticDoc implements Store, Ingest{
 		super.delete()
 	}
 	
-	StorePayload storePayload(){
-	  def sp = new StorePayload();
-	  sp.data = new VersionCapturingMap(
-		map(ModelFilter.exclude('_index','_id','_type','pointer')),
-		{ v -> _version = v }
-	  )
-	  sp
+	void storeFilters(List<ModelFilter> filters){
+		filters.add(ModelFilter.exclude('_index','_id','_type'))
+		filters.add(ModelFilter.add('_version_capture',{{ v -> _version = v  }}))
+		super.storeFilters(filters)
 	}
+
 }
 
 @CompileStatic 

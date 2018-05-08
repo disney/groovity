@@ -23,8 +23,8 @@
  *******************************************************************************/
 package com.disney.groovity.data;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 
 import com.disney.groovity.model.ModelCollector;
 /**
@@ -33,7 +33,7 @@ import com.disney.groovity.model.ModelCollector;
  * @author Alex Vigdor
  */
 public class AttachmentCollector extends ModelCollector {
-	List<Attachment> attachments = new ArrayList<>();
+	Map<String, Attachment> attachments = new HashMap<>();
 	
 	public AttachmentCollector() {
 		super();
@@ -41,19 +41,14 @@ public class AttachmentCollector extends ModelCollector {
 	
 	public void visitObject(Object o) throws Exception{
 		if(o instanceof Attachment) {
-			attachments.add((Attachment)o);
+			Attachment a = (Attachment)o;
+			attachments.put(a.getName(),a);
+			a.calculateMd5();
 			o = ((Attachment)o).describe();
 		}
 		super.visitObject(o);
 	}
-	public List<Attachment> getAttachments(){
+	public Map<String, Attachment> getAttachments(){
 		return attachments;
-	}
-	
-	public StorePayload toStorePayload(){
-		StorePayload sp = new StorePayload();
-		sp.setData(getCollected());
-		sp.setAttachments(attachments);
-		return sp;
 	}
 }
