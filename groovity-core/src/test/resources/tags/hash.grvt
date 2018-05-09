@@ -30,7 +30,7 @@ def h2 = hash{"abcdefg"}
 <g:set var="message" value="This message can be validated" />
 <g:write><g:hash value="${message}"/></g:write>
 <g:write value="|"/>
-<g:write><g:hash value="${message}" algorithm="md5" /></g:write>
+<g:write><g:hash value="${new ByteArrayInputStream(message.bytes)}" algorithm="md5" /></g:write>
 <g:write value="|"/>
 <g:write><g:hash value="${message}" encoding="hex" /></g:write>
 <g:write value="|"/>

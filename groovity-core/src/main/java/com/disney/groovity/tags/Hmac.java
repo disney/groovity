@@ -27,15 +27,21 @@ import groovy.lang.Closure;
 import groovy.lang.Writable;
 
 import java.io.CharArrayWriter;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.security.InvalidKeyException;
 import java.security.Key;
 import java.security.NoSuchAlgorithmException;
 import java.util.Map;
 
+import javax.activation.DataSource;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import javax.xml.bind.DatatypeConverter;
+
+import org.apache.http.HttpEntity;
 
 import com.disney.groovity.GroovityConstants;
 import com.disney.groovity.Taggable;
@@ -185,6 +191,24 @@ public class Hmac implements Taggable{
 		if(value instanceof byte[]){
 			mac.update((byte[])value);
 		}
+		else if(value instanceof InputStream) {
+			macStream(mac, (InputStream) value);
+		}
+		else if(value instanceof File) {
+			try(FileInputStream fis = new FileInputStream((File)value)){
+				macStream(mac,fis);
+			}
+		}
+		else if(value instanceof HttpEntity) {
+			try(InputStream is = ((HttpEntity) value).getContent()){
+				macStream(mac, is);
+			}
+		}
+		else if(value instanceof DataSource) {
+			try(InputStream is = ((DataSource)value).getInputStream()){
+				macStream(mac, is);
+			}
+		}
 		else{
 			mac.update(value.toString().getBytes("UTF-8"));
 		}
@@ -210,4 +234,11 @@ public class Hmac implements Taggable{
 		}
 	}
 
+	private void macStream(Mac mac, InputStream stream) throws IOException {
+		byte[] buf = new byte[8192];
+		int c = 0;
+		while((c=stream.read(buf))!=-1) {
+			mac.update(buf, 0, c);
+		}
+	}
 }

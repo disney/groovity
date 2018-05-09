@@ -27,13 +27,19 @@ import groovy.lang.Closure;
 import groovy.lang.Writable;
 
 import java.io.CharArrayWriter;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.security.InvalidKeyException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Map;
 
+import javax.activation.DataSource;
 import javax.xml.bind.DatatypeConverter;
+
+import org.apache.http.HttpEntity;
 
 import com.disney.groovity.GroovityConstants;
 import com.disney.groovity.Taggable;
@@ -162,6 +168,24 @@ public class Hash implements Taggable{
 		if(value instanceof byte[]){
 			md.update((byte[])value);
 		}
+		else if(value instanceof InputStream) {
+			digestStream(md, (InputStream) value);
+		}
+		else if(value instanceof File) {
+			try(FileInputStream fis = new FileInputStream((File)value)){
+				digestStream(md,fis);
+			}
+		}
+		else if(value instanceof HttpEntity) {
+			try(InputStream is = ((HttpEntity) value).getContent()){
+				digestStream(md, is);
+			}
+		}
+		else if(value instanceof DataSource) {
+			try(InputStream is = ((DataSource)value).getInputStream()){
+				digestStream(md, is);
+			}
+		}
 		else{
 			md.update(value.toString().getBytes("UTF-8"));
 		}
@@ -184,6 +208,14 @@ public class Hash implements Taggable{
 				bind(body,var.toString(), encoded);
 			}
 			return encoded;
+		}
+	}
+
+	private void digestStream(MessageDigest md, InputStream stream) throws IOException {
+		byte[] buf = new byte[8192];
+		int c = 0;
+		while((c=stream.read(buf))!=-1) {
+			md.update(buf, 0, c);
 		}
 	}
 

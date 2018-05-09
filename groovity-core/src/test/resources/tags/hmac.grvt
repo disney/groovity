@@ -26,7 +26,7 @@
 <g:set var="message" value="This message can be verified" />
 <g:write><g:hmac key="${secret}" value="${message}" /></g:write>
 <g:write value="|"/>
-<g:write><g:hmac key="${secret}" value="${message}" algorithm="md5" /></g:write>
+<g:write><g:hmac key="${secret}" value="${new ByteArrayInputStream(message.bytes)}" algorithm="md5" /></g:write>
 <g:write value="|"/>
 <g:write><g:hmac key="${secret}" value="${message}" encoding="hex" /></g:write>
 <g:write value="|"/>

@@ -29,6 +29,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Date;
@@ -38,6 +39,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicReference;
 
+import javax.activation.DataSource;
 import javax.xml.bind.DatatypeConverter;
 
 import com.disney.groovity.model.Model;
@@ -52,7 +54,7 @@ import com.disney.groovity.model.ModelWalker;
  * @author Alex Vigdor
  *
  */
-public class Attachment implements Model {
+public class Attachment implements Model, DataSource {
 	protected String name;
 	protected String contentType;
 	protected Long length;
@@ -191,10 +193,15 @@ public class Attachment implements Model {
 		}
 	}
 
-	public InputStream getInputStream() throws Exception{
+	public InputStream getInputStream() throws IOException{
 		return null;
 	}
 	
+	@Override
+	public OutputStream getOutputStream() throws IOException {
+		throw new UnsupportedOperationException();
+	}
+
 	public static Attachment find(Object model, final String name) throws Exception {
 		AtomicReference<Attachment> a = new AtomicReference<>();
 		new ModelWalker() {
@@ -236,7 +243,7 @@ public class Attachment implements Model {
 		}
 
 		@Override
-		public InputStream getInputStream() throws Exception {
+		public InputStream getInputStream() throws IOException {
 			return new ByteArrayInputStream(new byte[0]);
 		}
 		
@@ -343,11 +350,22 @@ public class Attachment implements Model {
 		}
 
 		@Override
-		public InputStream getInputStream() throws Exception {
+		public InputStream getInputStream() throws IOException {
 			if(callable==null) {
 				throw new FileNotFoundException(getName());
 			}
-			return callable.call();
+			try {
+				return callable.call();
+			}
+			catch(IOException e) {
+				throw e;
+			}
+			catch(RuntimeException e) {
+				throw e;
+			}
+			catch (Exception e) {
+				throw new IOException(e);
+			}
 		}
 
 		public java.util.concurrent.Callable<InputStream> getCallable() {
