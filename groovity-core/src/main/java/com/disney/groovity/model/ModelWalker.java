@@ -31,6 +31,7 @@ import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -42,6 +43,14 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public abstract class ModelWalker implements ModelVisitor {
 	private static final Object KNOWN_IDENTITY  = new Object();
+	private static final Collection<String> BASE_PACKAGES;
+	static {
+		BASE_PACKAGES = ConcurrentHashMap.newKeySet();
+		BASE_PACKAGES.add("java.io");
+		BASE_PACKAGES.add("java.net");
+		BASE_PACKAGES.add("java.lang");
+		BASE_PACKAGES.add("groovy.lang");
+	}
 	private final ModelConsumer fieldHandler = ((ModelConsumer)this::handleField);
 	protected ArrayList<String> fields = new ArrayList<>();
 	protected List<String> readOnlyFields = (List<String>) Collections.unmodifiableList(fields);
@@ -97,8 +106,7 @@ public abstract class ModelWalker implements ModelVisitor {
 		Class oc  = obj.getClass();
 		Package p = oc.getPackage();
 		if(p!=null) {
-			String pn = p.getName();
-			if(pn.startsWith("java.lang") || pn.startsWith("groovy.lang")) {
+			if(BASE_PACKAGES.contains(p.getName())){
 				//don't devolve basic objects
 				return;
 			}

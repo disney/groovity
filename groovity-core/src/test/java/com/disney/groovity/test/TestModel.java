@@ -25,9 +25,11 @@ package com.disney.groovity.test;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.lang.reflect.Modifier;
+import java.net.URL;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
@@ -46,6 +48,7 @@ import com.disney.groovity.model.ModelCollector;
 import com.disney.groovity.model.ModelConsumer;
 import com.disney.groovity.model.ModelFilter;
 import com.disney.groovity.model.ModelJsonWriter;
+import com.disney.groovity.model.ModelWalker;
 
 import groovy.lang.Closure;
 import groovy.lang.GroovySystem;
@@ -59,6 +62,15 @@ import groovy.lang.MetaMethod;
  *
  */
 public class TestModel {
+
+	@Test public void testWalker() throws Exception{
+		ModelWalker walker = new ModelWalker() {
+		};
+		walker.visit(new File("target"));
+		walker.visit(new URL("http://whatever.not/123/456?abc=xyz"));
+		walker.visit(new Date());
+	}
+
 	@SuppressWarnings("rawtypes")
 	@Test public void testMeta() throws Exception {
 		ModelCheck mc = new ModelCheck();
