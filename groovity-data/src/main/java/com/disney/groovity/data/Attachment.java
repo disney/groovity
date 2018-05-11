@@ -43,6 +43,7 @@ import javax.activation.DataSource;
 import javax.xml.bind.DatatypeConverter;
 
 import com.disney.groovity.model.Model;
+import com.disney.groovity.model.ModelFilter;
 import com.disney.groovity.model.ModelConsumer;
 import com.disney.groovity.model.ModelWalker;
 
@@ -55,6 +56,7 @@ import com.disney.groovity.model.ModelWalker;
  *
  */
 public class Attachment implements Model, DataSource {
+	public static final ModelFilter DESCRIBE = ModelFilter.transform(Attachment.class, a->{ return a.describe(); });
 	protected String name;
 	protected String contentType;
 	protected Long length;
@@ -94,11 +96,11 @@ public class Attachment implements Model, DataSource {
 
 	public Map<String,Object> describe() {
 		Map<String,Object> map = new LinkedHashMap<>();
-		map.put("name", name);
-		map.put("contentType", contentType);
-		map.put("length", length);
-		map.put("md5", md5);
-		map.put("modified", modified);
+		map.put("name", getName());
+		map.put("contentType", getContentType());
+		map.put("length", getLength());
+		map.put("md5", getMd5());
+		map.put("modified", getModified());
 		if(attributes!=null) {
 			map.putAll(attributes);
 		}

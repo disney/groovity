@@ -101,7 +101,7 @@ http(
 }
 
 //raw windows bytes
-def rawWindowsBytes = new ByteArrayEntity([123, 34, 109, 101, 115, 115, 97, 103, 101, 34, 58, 34, -64, -31, -128, -32, 34, 125] as byte[], ContentType.parse('application/json; charset=Windows-1252'))
+def rawWindowsBytes =[123, 34, 109, 101, 115, 115, 97, 103, 101, 34, 58, 34, -64, -31, -128, -32, 34, 125] as byte[]
 http(
 	url: "${host}/charCheck",
 	method: 'POST',

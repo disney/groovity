@@ -314,7 +314,7 @@ public class TestGroovityTags {
 						.withBody("postBodyOK")));
 		stubFor(post(urlEqualTo("/mypost"))
 				.withRequestBody(matching("a=b&c=d"))
-				.withHeader("Content-Type", matching("application/x-www-form-urlencoded"))
+				.withHeader("Content-Type", matching("application/x-www-form-urlencoded; charset=UTF-8"))
 				.willReturn(aResponse()
 						.withStatus(200)
 						.withHeader("Last-Modified", "100")
@@ -330,7 +330,7 @@ public class TestGroovityTags {
 						.withBody("{\"status\":\"jsonOK\"}")));
 		stubFor(post(urlEqualTo("/mypost"))
 				.withRequestBody(matching("(?s).*?Content-Disposition: form-data; name=\"part1\"; filename=\"file1.txt\"\\s+Content-Type: application/octet-stream\\s+Content-Transfer-Encoding: binary\\s+part1 body.*?Content-Disposition: form-data; name=\"part2\"\\s+Content-Type: text/plain; charset=ISO-8859-1\\s+Content-Transfer-Encoding: 8bit\\s+part2 body.*"))
-				.withHeader("Content-Type", matching("multipart/form-data"))
+				.withHeader("Content-Type", matching("multipart/form-data; boundary=.*"))
 				.willReturn(aResponse()
 						.withStatus(200)
 						.withHeader("Last-Modified", "100")
@@ -345,7 +345,7 @@ public class TestGroovityTags {
 						.withHeader("Content-Type", "application/xml")
 						.withBody("<doc><status>xmlOK</status><other>whatever</other></doc>")));
 		stubFor(put(urlEqualTo("/myput"))
-				.withHeader("Content-Type", matching("application/json"))
+				.withHeader("Content-Type", matching("application/json.*"))
 				.withRequestBody(equalToJson("{\"abc\":123}"))
 				.willReturn(aResponse()
 						.withStatus(200)

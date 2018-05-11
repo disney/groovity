@@ -324,7 +324,12 @@ public class Http implements Taggable {
 				for(Header header: headers) {
 					if(header.getName().equalsIgnoreCase("Content-Type")) {
 						targetType = ContentType.parse(header.getValue());
-						if(targetType.getCharset()==null) {
+						String m = targetType.getMimeType();
+						if(targetType.getCharset()==null && (
+								m.startsWith("text") ||
+								m.contains("xml") ||
+								m.contains("json")
+							)) {
 							targetType = targetType.withCharset("UTF-8");
 						}
 						break;
@@ -511,6 +516,9 @@ public class Http implements Taggable {
 				}
 				if(dataEntity!=null){
 					((HttpEntityEnclosingRequest)request).setEntity(dataEntity);
+					if(dataEntity.getContentType() != null){
+						request.setHeader("Content-Type", dataEntity.getContentType().getValue());
+					}
 				}
 			}
 			RequestConfig.Builder configBuilder = request.getConfig() ==null? RequestConfig.custom() : RequestConfig.copy(request.getConfig());
