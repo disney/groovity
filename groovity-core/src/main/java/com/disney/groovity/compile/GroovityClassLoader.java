@@ -137,7 +137,11 @@ public class GroovityClassLoader extends GroovyClassLoader implements GroovityCo
 
 	@SuppressWarnings("unchecked")
 	public void init(@SuppressWarnings("rawtypes") ConcurrentHashMap<String, Class> finalTraits){
-		this.traits=finalTraits;
+		finalTraits.forEach((k,v)->{
+			if(!traits.containsKey(k)) {
+				traits.put(k, v);
+			}
+		});
 		if(this.readOnlyConfiguration==null && this.scriptClass!=null){
 			try {
 				java.lang.reflect.Field confField = scriptClass.getDeclaredField(CONF);

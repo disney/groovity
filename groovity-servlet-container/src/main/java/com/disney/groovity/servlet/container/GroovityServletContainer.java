@@ -110,7 +110,7 @@ public class GroovityServletContainer {
         context.setResourceBase(webapp.getAbsolutePath());
         context.setContextPath("/");
         context.setClassLoader(new WebAppClassLoader(classLoader, context));
-        context.setAttribute("org.eclipse.jetty.server.webapp.ContainerIncludeJarPattern", ".*/.+\\.jar$");
+        context.setAttribute("org.eclipse.jetty.server.webapp.ContainerIncludeJarPattern", ".*/.+\\.jar$|.*/classes/.*");
         URLClassLoader ucl = (URLClassLoader) classLoader;
         for(URL url: ucl.getURLs()){
         	File file = new File(url.getFile());

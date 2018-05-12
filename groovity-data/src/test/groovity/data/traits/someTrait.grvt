@@ -21,16 +21,8 @@
  * KIND, either express or implied. See the Apache License for the specific
  * language governing permissions and limitations under the Apache License.
  *******************************************************************************/
-load '/data/factory'
-
-def a1 = factory('author','1')
-assert a1.name == "Jim Beam"
-assert a1.nickName == "Kentucky"
-assert a1.twitter == "@JimBeam"
-
-assert getClass().getClassLoader().loadClass('SomethingOrAnother') != null
-
-//dummy trait to force load order issue for testing
-trait TestAuthor{
+ 
+//this trait depends on a trait defined in a test script to validate visibility with a challenging compile order
+trait SomethingOrAnother implements TestAuthor{
 
 }
