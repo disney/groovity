@@ -61,21 +61,19 @@ trait Stored implements Store{
 	Store store(){
 		def ptr = getPointer()
 		assert ptr : "This Stored Factory Object has not been acquired properly via factory('type')"
+		DataModel prior = null
+		def factory = load('/data/factory')
+		if(ptr.id){
+			factory.invalidate(ptr)
+			prior = factory(ptr)
+		}
 		def config = getClass().getClassLoader().getConfiguration()
 		String sourceScriptName = config.get('source').toString()
 		if(!sourceScriptName.startsWith('/')){
 			sourceScriptName = '/data/sources/'.concat(sourceScriptName)
 		}
 		def sourceScript = load(sourceScriptName)
-		def prior = null
-		if(ptr.id){
-			def loadMap = [(ptr.id):null]
-			sourceScript.call(loadMap, config)
-			prior = loadMap[ptr.id]
-			if(prior instanceof Future){
-				prior = prior.get()
-			}
-		}
+		preStore(prior)
 		ArrayList<ModelFilter> filters = new ArrayList<>()
 		storeFilters(filters)
 		def sp = new StorePayload(this, filters, prior)
@@ -85,11 +83,15 @@ trait Stored implements Store{
 			setPointer(ptr)
 		}
 		if(ptr.id){
-			load('/data/factory').invalidate(ptr)
+			factory.invalidate(ptr)
 		}
 		this
 	}
 	
+	public void preStore(DataModel old){
+		//do nothing; other traits or models can extend to add functionality
+	}
+
 	void delete(){
 		def ptr = getPointer()
 		if(ptr.id){
