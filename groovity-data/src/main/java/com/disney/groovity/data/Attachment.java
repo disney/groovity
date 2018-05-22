@@ -195,6 +195,10 @@ public class Attachment implements Model, DataSource {
 		}
 	}
 
+	public boolean hasContent() {
+		return !(getClass().equals(Attachment.class));
+	}
+
 	public InputStream getInputStream() throws IOException{
 		return null;
 	}

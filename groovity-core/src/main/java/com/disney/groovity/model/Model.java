@@ -27,12 +27,12 @@ import java.io.Externalizable;
 import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
-import java.io.Writer;
 import java.lang.reflect.Type;
 import java.util.Collection;
 import java.util.Map;
 
 import org.codehaus.groovy.reflection.CachedField;
+import org.codehaus.groovy.reflection.CachedMethod;
 
 import com.disney.groovity.GroovityObjectConverter;
 import com.disney.groovity.compile.SkipStatistics;
@@ -41,8 +41,8 @@ import com.disney.groovity.util.MetaPropertyLookup;
 import groovy.json.JsonSlurper;
 import groovy.lang.Closure;
 import groovy.lang.MetaBeanProperty;
+import groovy.lang.MetaMethod;
 import groovy.lang.MetaProperty;
-import groovy.lang.Writable;
 
 /**
  * A model is a type of object that can be expressed in map/list form or serialized to JSON or XML
@@ -161,6 +161,12 @@ public interface Model extends Externalizable{
 					Type type = mp.getType();
 					if(cf!=null) {
 						type = cf.field.getGenericType();
+					}
+					else {
+						MetaMethod mm = mbp.getGetter();
+						if(mm instanceof CachedMethod) {
+							type = ((CachedMethod)mm).getCachedMethod().getGenericReturnType();
+						}
 					}
 					if(type!=null) {
 						value = GroovityObjectConverter.convert(value, type);
