@@ -85,9 +85,21 @@ trait Stored implements Store{
 		if(ptr.id){
 			factory.invalidate(ptr)
 		}
+		offerChange(ptr,'store')
 		this
 	}
 	
+	void offerChange(Pointer pointer, String change){
+		def event =  [ change: change, data: pointer.copy(), time: System.currentTimeMillis() ]
+		if(binding?.hasVariable('request') && request?.hasProperty('userPrincipal')){
+			event.user = request.userPrincipal
+		}
+		else if(binding?.hasVariable('socket') && socket?.hasProperty('userPrincipal')){
+			event.user = socket.userPrincipal
+		}
+		offer(channel: '/data/changes', value: event)
+	}
+
 	public void preStore(DataModel old){
 		//do nothing; other traits or models can extend to add functionality
 	}
@@ -102,6 +114,7 @@ trait Stored implements Store{
 			}
 			load(sourceScriptName).delete(ptr.id, config)
 			load('/data/factory').invalidate(ptr)
+			offerChange(ptr, 'delete')
 		}
 	}
 	

@@ -22,12 +22,24 @@
  * language governing permissions and limitations under the Apache License.
  *******************************************************************************/
 load '/data/factory'
-CountDownLatch latch = new CountDownLatch(1)
+CountDownLatch latch = new CountDownLatch(2)
+CountDownLatch deleteLatch = new CountDownLatch(1)
 
 def watcher1 = factory.watch('author',"FibonacciAuthor"){ pointer ->
 	def author = factory(pointer)
 	assert author.name == 'Fibonacci'
 	latch.countDown()
+}
+
+def reactor1 = accept(channel:'/data/changes'){ msg->
+	assert msg.data.id == 'FibonacciAuthor'
+	assert msg.data.type == 'author'
+	if(msg.change == 'store'){
+		latch.countDown()
+	}
+	if(msg.change == 'delete'){
+		deleteLatch.countDown()
+	}
 }
 
 def payload = [0,1,1,2,3,5,8,13,21,34,55,89,144] as byte[]
@@ -47,4 +59,10 @@ try{
 finally{
 	watcher1.cancel(true)
 	author.delete()
+}
+try{
+	assert deleteLatch.await(2,TimeUnit.SECONDS)
+}
+finally{
+	reactor1.close()
 }
