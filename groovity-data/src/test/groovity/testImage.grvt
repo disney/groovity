@@ -127,6 +127,7 @@ try{
 	
 	rt.original = new Attachment.Bytes(rt.original)
 	rt.original.bytes =  ([25,27,29,31,33,35] as byte[])
+	rt.original.md5 = null
 	rt.store()
 	
 	rt = factory(img.pointer)

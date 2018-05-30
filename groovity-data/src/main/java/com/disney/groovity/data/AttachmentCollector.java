@@ -43,7 +43,9 @@ public class AttachmentCollector extends ModelCollector {
 		if(o instanceof Attachment) {
 			Attachment a = (Attachment)o;
 			attachments.put(a.getName(),a);
-			a.calculateMd5();
+			if(a.getMd5()==null) {
+				a.calculateMd5();
+			}
 			o = ((Attachment)o).describe();
 		}
 		super.visitObject(o);
