@@ -25,6 +25,7 @@ package com.disney.groovity.test;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.CharArrayWriter;
 import java.io.File;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -34,6 +35,7 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
@@ -50,6 +52,7 @@ import com.disney.groovity.model.ModelFilter;
 import com.disney.groovity.model.ModelJsonWriter;
 import com.disney.groovity.model.ModelWalker;
 
+import groovy.json.JsonSlurper;
 import groovy.lang.Closure;
 import groovy.lang.GroovySystem;
 import groovy.lang.MetaBeanProperty;
@@ -62,6 +65,21 @@ import groovy.lang.MetaMethod;
  *
  */
 public class TestModel {
+
+	@Test public void testNaN() throws Exception{
+		List<Number> model = Arrays.asList(1.0,2.0f,3.0,Double.NaN,Float.NaN,Float.NEGATIVE_INFINITY,Float.POSITIVE_INFINITY,Double.NEGATIVE_INFINITY,Double.POSITIVE_INFINITY);
+		CharArrayWriter caw = new CharArrayWriter();
+		ModelJsonWriter jw = new ModelJsonWriter(caw);
+		jw.visit(model);
+		String s = caw.toString();
+		@SuppressWarnings("unchecked")
+		List<Number> r = (List<Number>) new JsonSlurper().parseText(s);
+		Assert.assertEquals(2, r.get(1).intValue());
+		Assert.assertEquals(3, r.get(2).intValue());
+		for(int i=3;i<9;i++) {
+			Assert.assertEquals(null, r.get(i));
+		}
+	}
 
 	@Test public void testWalker() throws Exception{
 		ModelWalker walker = new ModelWalker() {

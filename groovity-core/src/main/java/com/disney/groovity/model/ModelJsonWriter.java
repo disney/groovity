@@ -109,7 +109,24 @@ public class ModelJsonWriter extends ModelWalker{
 			escape.append((CharSequence) o);
 			writer.write('"');
 		}
-		else if(o instanceof Number || o instanceof Boolean) {
+		else if(o instanceof Number) {
+			if(o instanceof Double) {
+				Double d = (Double) o;
+				if(d.isInfinite()||d.isNaN()) {
+					writer.write("null");
+					return;
+				}
+			}
+			if(o instanceof Float) {
+				Float f = (Float) o;
+				if(f.isInfinite()||f.isNaN()) {
+					writer.write("null");
+					return;
+				}
+			}
+			writer.write(o.toString());
+		}
+		else if(o instanceof Boolean) {
 			writer.write(o.toString());
 		}
 		else if(o instanceof Date) {
