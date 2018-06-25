@@ -70,15 +70,14 @@ public class Run implements Taggable {
 
 	@SuppressWarnings("rawtypes")
 	public Object tag(Map attributes, Closure body) throws Exception {
-		Object path = attributes.get("path");
+		String path = resolve(attributes, "path", String.class);
 		if(path==null){
 			throw new RuntimeException("Run tag requires path attribute");
 		}
-		Object var = attributes.get(VAR);
-		String p = path.toString();
-		Object rval = getScriptHelper(body).run(p);
+		String var = resolve(attributes, VAR, String.class);
+		Object rval = getScriptHelper(body).run(path);
 		if(var!=null){
-			bind(body,var.toString(), rval);
+			bind(body,var, rval);
 		}
 		return rval;
 	}

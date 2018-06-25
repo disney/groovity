@@ -24,13 +24,27 @@
 import com.disney.groovity.data.StorePayload
 import com.disney.groovity.data.Attacher
 
-static ConcurrentHashMap<String, MemoryData> dataObjects = new ConcurrentHashMap<>()
-
+static final ConcurrentHashMap<String, ConcurrentHashMap<String, MemoryData>> DATA_POOLS = new ConcurrentHashMap<>()
+static final String DEFAULT_DATA_POOL = 'DEFAULT_DATA_POOL'
+/**
+ * The memory data source supports the following typeConfiguration options on types that leverage it
+ *
+ * memory.pool = the name of the memory pool to store data in; this is effectively an ID namespace
+ */
+@CompileStatic
+private static ConcurrentHashMap<String, MemoryData> getDataPool(Map typeConf){
+	String dataPoolName = DEFAULT_DATA_POOL;
+	if(typeConf?.containsKey('memory.pool')){
+		dataPoolName = typeConf.get('memory.pool')
+	}
+	DATA_POOLS.computeIfAbsent(dataPoolName){ new ConcurrentHashMap<>() }
+}
+ 
 @CompileStatic
 @Function(info="Look up one or more objects from the memory data layer")
-public void call(Map<String,Object> map, Map conf){
+public void call(Map<String,Object> map, Map typeConf){
 	map.each{ entry ->
-		MemoryData data = dataObjects.get(entry.key)
+		MemoryData data = getDataPool(typeConf).get(entry.key)
 		if(data != null){
 			Attacher attacher = new Attacher()
 			attacher.attachments = data.dataAttachments;
@@ -49,19 +63,20 @@ public String store(String id, Object data){
 	MemoryData md = new MemoryData()
 	md.dataObject = data
 	md.updateTime = System.currentTimeMillis()
-	dataObjects.put(id,md)
+	getDataPool(null).put(id,md)
 }
 
 @CompileStatic
 @Function(info="Add one or more objects to the memory data layer")
-public String store(String id, StorePayload payload, Map conf){
+public String store(String id, StorePayload payload, Map typeConf){
+	ConcurrentHashMap<String, MemoryData> dataPool = getDataPool(typeConf)
 	if(!id){
 		id = UUID.randomUUID().toString();
-		while(dataObjects.containsKey(id)){
+		while(dataPool.containsKey(id)){
 			id = UUID.randomUUID().toString();
 		}
 	}
-	Map<String,Attachment> reconciledAttachments = (Map<String,Attachment>) dataObjects.get(id)?.dataAttachments?.collectEntries{[it.name, it]} ?: [:]
+	Map<String,Attachment> reconciledAttachments = (Map<String,Attachment>) dataPool.get(id)?.dataAttachments?.collectEntries{[it.name, it]} ?: [:]
 	payload.attachmentsToDelete?.each{
 		reconciledAttachments.remove(it)
 	}
@@ -75,28 +90,29 @@ public String store(String id, StorePayload payload, Map conf){
 		}
 	}
 	md.dataAttachments = new ArrayList(reconciledAttachments.values())
-	dataObjects.put(id,md)
+	dataPool.put(id,md)
 	id
 }
 
 @CompileStatic
 @Function(info="Remove an object from the memory data layer")
-public void delete(String id, Map conf){
-	dataObjects.remove(id)
+public void delete(String id, Map typeConf){
+	getDataPool(typeConf).remove(id)
 }
 
 @CompileStatic
 @Function(info="retrieve IDs of file updates since the given date")
 public long dateRange(String key, long lowerBound, long upperBound, Map typeConf, Closure keyCallback){
+	ConcurrentHashMap<String, MemoryData> dataPool = getDataPool(typeConf)
 	if(key!=null){
-		MemoryData md = dataObjects.get(key)
+		MemoryData md = dataPool.get(key)
 		if(md!=null && lowerBound < md.updateTime && md.updateTime < upperBound){
 			keyCallback(key)
 			return md.updateTime
 		}
 		return lowerBound
 	}
-	def found = dataObjects.findAll{ k, v -> lowerBound < v.updateTime && v.updateTime < upperBound }
+	def found = dataPool.findAll{ k, v -> lowerBound < v.updateTime && v.updateTime < upperBound }
 	found.each{ k, v ->
 		keyCallback(k)
 		if(v.updateTime > lowerBound){

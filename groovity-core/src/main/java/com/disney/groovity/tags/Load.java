@@ -72,16 +72,15 @@ public class Load implements Taggable {
 
 	@SuppressWarnings("rawtypes")
 	public Object tag(Map attributes, Closure body) {
-		Object path = attributes.get("path");
+		String path = resolve(attributes, "path", String.class);
 		if(path==null){
 			throw new RuntimeException("Load tag requires path attribute");
 		}
-		Object var = attributes.get(VAR);
+		String var = resolve(attributes, VAR, String.class);
 		try {
-			String p = path.toString();
-			Script script = getScriptHelper(body).load(p);
+			Script script = getScriptHelper(body).load(path);
 			if(var!=null){
-				bind(body,var.toString(), script);
+				bind(body,var, script);
 			}
 			return script;
 		} catch (Exception e) {

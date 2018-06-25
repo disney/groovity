@@ -21,33 +21,13 @@
  * KIND, either express or implied. See the Apache License for the specific
  * language governing permissions and limitations under the Apache License.
  *******************************************************************************/
-package com.disney.groovity.data;
+static conf=[
+	source: 'memory',
+	'memory.pool':'copiedThings'
+]
 
-import java.util.Map;
+class ThingCopy implements DataModel, Stored, ThingWithName, ThingWithDate, ThingWithCount{
 
-import com.disney.groovity.compile.SkipStatistics;
-import com.disney.groovity.model.Model;
-
-/**
- * API for traits and types that have special ingest logic, typically for transforming or post-processing data 
- * retrieved from a source into the native data model.  Traits and types can also declare multiple setters for 
- * a property to accomplish this, but Ingest allows this complexity to be hidden from users of the data model.  
- * 
- * @author Alex Vigdor
- */
-public interface Ingest{
-	@SkipStatistics
-	public boolean ingest(String key, Object val);
-	
-	@SkipStatistics
-	public default Ingest ingest(Map<String, Object> data) {
-		data.forEach(this::ingest);
-		return this;
-	}
-
-	@SkipStatistics
-	public default Ingest ingest(Model data) {
-		data.each(this::ingest);
-		return this;
-	}
 }
+
+new ThingCopy()

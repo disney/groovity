@@ -97,7 +97,7 @@ DataModel call(String type, String id){
 	String[] args = new String[1]
 	args[0] = id
 	def results = _doLookupIds(type, args)
-	if(results.isEmpty()){
+	if(results == null || results.isEmpty()){
 		return null
 	}
 	return results.get(0)
@@ -118,7 +118,14 @@ List<DataModel> call(String type, String... ids){
 @CompileStatic @SkipStatistics
 private final List<DataModel> _doLookupIds(String type, String... ids){
 	final String typeScript = '/data/types/'.concat(type)
-	Script typeFactory = load(typeScript);
+	Script typeFactory = null
+	try{
+		typeFactory = load(typeScript);
+	}
+	catch(ClassNotFoundException e){
+		log(warn:"No script found ${typeScript}")
+		return null;
+	}
 	if(typeFactory == null){
 		return null;
 	}
@@ -238,7 +245,7 @@ private final DataModel _doLookupPointer(Pointer pointer){
 	String[] args = new String[1]
 	args[0] = pointer.id
 	def results = _doLookupIds(pointer.type, args)
-	if(results.isEmpty()){
+	if(results==null || results.isEmpty()){
 		return null
 	}
 	results.get(0)
@@ -273,8 +280,11 @@ private final List<DataModel> _doLookupPointers(final Pointer... references){
 	for(Map.Entry<String, List<String>> entry: refsByType){
 		final String type = entry.key
 		final List<String> ids = entry.value
-		for(DataModel d: _doLookupIds(type, ids.toArray(new String[ids.size()]))){
-			resolved.put(d.pointer,d)
+		def results = _doLookupIds(type, ids.toArray(new String[ids.size()]))
+		if(results!=null){
+			for(DataModel d: results){
+				resolved.put(d.pointer,d)
+			}
 		}
 	}
 	//now put back in order

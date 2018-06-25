@@ -54,6 +54,13 @@ trait DataModel implements Model, Ingest{
 		}
 		this
 	}
+	@CompileStatic
+	public Ingest ingest(final Model data) {
+		data.each{ String k,v ->
+			ingest(k,v)
+		}
+		this
+	}
 }
 
 
