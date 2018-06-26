@@ -35,7 +35,6 @@ static web = [
 		domain:"/portal/session/",
 		passwordDigester:"PortalPasswordDigester"
 	],
-	errorPage:'/groovity/portal/error',
 	method:'GET'
 ];
 

@@ -28,7 +28,6 @@ static web = [
 	path: "/{pageLookup : .*}",
 	output:"text/html",
 	charset:"UTF-8",
-	errorPage:'/groovity/portal/error',
 	methods:['GET','POST']
 ]
 

@@ -21,44 +21,38 @@
  * KIND, either express or implied. See the Apache License for the specific
  * language governing permissions and limitations under the Apache License.
  *******************************************************************************/
-static portal = [
-	title:"Error"
-]
-static web = [
-	path:"/groovity/portal/error",
-	outputs:['text/html','application/json','text/plain']
-]
-static args = [
-	error:null
-]
-
-def portalLib = load '/groovity/portal/lib/portal'
-def lookup1 = "${error?.uri}";
-def lookup2 = "${error?.uri}/";
-def lookup3 = "${error?.uri}${error?.uri?'/':''}index";
-portalPageConfig = portalLib.sitemap.find{ it.path==lookup1 || it.path==lookup2 || it.path==lookup3 }
-if(!portalPageConfig){
-	portalPageConfig = portalLib.sitemap.find{ it.scriptPath=='/groovity/portal/controller' }
+static init(){
+	System.setProperty('groovity.errorPageTag', 'portalError')
 }
-def rolePath = portalPageConfig.path ?: "${error?.uri}";
-roles = request.session?.getAttribute('pageRoles')?.get(rolePath)
-if(roles==null){
-	if(request.userPrincipal){
-		roles = request.userPrincipal.getRoles(request.session, rolePath, portalPageConfig.roles)
-	}
-	else if(portalPageConfig.roles.contains('anon')){
-		roles = ['anon']
-	}
-	else{
-		roles = []
+
+@Tag(info="Generate a portal error page shell")
+class PortalError{
+	def tag(Map attributes, Closure body){
+		def portalLib = load '/groovity/portal/lib/portal'
+		def lookup1 = "${error?.uri}";
+		def lookup2 = "${error?.uri}/";
+		def lookup3 = "${error?.uri}${error?.uri?'/':''}index";
+		portalPageConfig = portalLib.sitemap.find{ it.path==lookup1 || it.path==lookup2 || it.path==lookup3 }
+		if(!portalPageConfig){
+			portalPageConfig = portalLib.sitemap.find{ it.scriptPath=='/groovity/portal/controller' }
+		}
+		def rolePath = portalPageConfig.path ?: "${error?.uri}";
+		roles = request.session?.getAttribute('pageRoles')?.get(rolePath)
+		if(roles==null){
+			if(request.userPrincipal){
+				roles = request.userPrincipal.getRoles(request.session, rolePath, portalPageConfig.roles)
+			}
+			else if(portalPageConfig.roles.contains('anon')){
+				roles = ['anon']
+			}
+			else{
+				roles = []
+			}
+		}
+		portal{
+			portlet(wide:true,title:'ERROR'){
+				body()
+			}
+		}
 	}
 }
-<~
-<g:portal>
-<div style="margin:0px 12px">
-Error ${error?.status} in ${error?.scriptPath} servicing ${error?.uri}: 
-
-<p>${error?.message}</p>
-</div>
-</g:portal>
-~>

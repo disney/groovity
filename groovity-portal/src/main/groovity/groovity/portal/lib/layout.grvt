@@ -95,8 +95,21 @@ class Portal{
 		def rquery = rpath ? request.getAttribute(RequestDispatcher.FORWARD_QUERY_STRING) : request.queryString;
 		rpath = rpath ?: request.pathInfo ?: request.servletPath;
 		redirectUrl = new StringBuilder(layoutLib.conf.PORTAL_BASE_URL);
-		if(rpath=='/groovity/portal/error'){
-			rpath = '/'
+		if(binding.hasVariable('error')){
+			def eu = error.uri
+			if(eu){
+				if(eu.startsWith(layoutLib.conf.PORTAL_LOGIN_LINK)){
+					rpath = eu.substring(layoutLib.conf.PORTAL_LOGIN_LINK.length())
+				}
+				else{
+					rpath = eu
+				}
+				rpath = URLDecoder.decode(rpath,"UTF-8")
+				rquery = null
+			}
+			else{
+				rpath = '/'
+			}
 		}
 		redirectUrl << rpath;
 		if(rquery){
@@ -137,7 +150,7 @@ class Portal{
 		stream <~<!DOCTYPE html>
 	<html>
 		<head>
-			<title>${body.portal.title ?: layoutLib.conf.PORTAL_TITLE}</title>
+			<title>${get(body,'portal')?.title ?: layoutLib.conf.PORTAL_TITLE}</title>
 			<meta name="apple-mobile-web-app-capable" content="yes">
 			<meta name = "viewport" content = "initial-scale = 1.0">
 			<link type="text/css" rel="stylesheet" href="/static/groovity/portal/portal.css" />
