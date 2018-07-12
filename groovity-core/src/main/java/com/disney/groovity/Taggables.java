@@ -24,6 +24,7 @@
 package com.disney.groovity;
 
 import java.beans.Introspector;
+import java.lang.annotation.IncompleteAnnotationException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -126,7 +127,12 @@ public class Taggables implements GroovityConstants{
 				LinkedHashMap doc = new LinkedHashMap();
 				docs.add(doc);
 				doc.put(NAME,entry.getKey());
-				doc.put(INFO,ti.info());
+				try {
+					doc.put(INFO,ti.info());
+				}
+				catch(IncompleteAnnotationException e) {
+					//ignore incomplete annotations
+				}
 				if(ti.body()!=null){
 					doc.put(BODY,ti.body());
 				}
