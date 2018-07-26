@@ -64,11 +64,11 @@ trait DataModel implements Model, Ingest{
 }
 
 
-trait Stored implements Store{
+trait Stored implements Store, PreStore{
 	Store store(){
 		def ptr = getPointer()
 		assert ptr : "This Stored Factory Object has not been acquired properly via factory('type')"
-		DataModel prior = null
+		Model prior = null
 		def factory = load('/data/factory')
 		if(ptr.id){
 			factory.invalidate(ptr)
@@ -107,7 +107,7 @@ trait Stored implements Store{
 		offer(channel: '/data/changes', value: event)
 	}
 
-	public void preStore(DataModel old){
+	public void preStore(Model old){
 		//do nothing; other traits or models can extend to add functionality
 	}
 

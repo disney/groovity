@@ -23,28 +23,13 @@
  *******************************************************************************/
 package com.disney.groovity.data;
 
-import org.codehaus.groovy.control.CompilerConfiguration;
-import org.codehaus.groovy.control.customizers.ImportCustomizer;
-
-import com.disney.groovity.compile.CompilerConfigurationDecorator;
+import com.disney.groovity.model.Model;
 
 /**
- * A compiler configuration customizer to automatically import data model classes
- *
+ * API for data traits that support the preStore operation
+ * 
  * @author Alex Vigdor
  */
-public class DataCompilerConfigurationDecorator implements CompilerConfigurationDecorator {
-
-	@Override
-	public void decorate(CompilerConfiguration config) {
-		config.addCompilationCustomizers(new ImportCustomizer().addImports(
-				Pointer.class.getName(),
-				Store.class.getName(),
-				PreStore.class.getName(),
-				Shared.class.getName(),
-				Attachment.class.getName(),
-				Ingest.class.getName()
-			));
-	}
-
+public interface PreStore{
+	public void preStore(Model previous);
 }
