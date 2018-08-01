@@ -429,11 +429,11 @@ public long dateRange(String type, String id, long lowerBound, long upperBound, 
 	}
 	catch(Exception e){
 		log(warn:"Error loading script ${typeScript} in dateRange", thrown:e)
-		return
+		return lowerBound
 	}
 	Map typeConf = ((GroovityClassLoader)typeFactory.getClass().getClassLoader()).getConfiguration()
 	if(!typeConf || !typeConf.containsKey('source')){
-		return
+		return lowerBound
 	}
 	String sourceScriptName = typeConf.get('source').toString()
 	if(!sourceScriptName.startsWith('/')){
