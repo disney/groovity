@@ -42,16 +42,20 @@ class PortalError{
 			if(request.userPrincipal){
 				roles = request.userPrincipal.getRoles(request.session, rolePath, portalPageConfig.roles)
 			}
-			else if(portalPageConfig.roles.contains('anon')){
-				roles = ['anon']
-			}
 			else{
-				roles = []
+				roles = ['anon']
 			}
 		}
 		portal{
 			portlet(wide:true,title:'ERROR'){
 				body()
+			}
+			portlet(roles:['anon'],title:'Welcome'){
+				<~
+				<div style="text-align:center">
+				Please <a href="${load('/groovity/portal/lib/layout').conf.PORTAL_LOGIN_LINK}${URLEncoder.encode(error?.uri)}">login</a>
+				</div>
+				~>
 			}
 		}
 	}
