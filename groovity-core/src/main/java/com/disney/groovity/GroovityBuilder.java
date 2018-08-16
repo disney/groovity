@@ -43,6 +43,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.http.impl.client.HttpClientBuilder;
 
 import com.disney.groovity.conf.Configurator;
+import com.disney.groovity.conf.EnvConfigurator;
 import com.disney.groovity.conf.MultiConfigurator;
 import com.disney.groovity.conf.PropertiesFileConfigurator;
 import com.disney.groovity.conf.PropertiesResourceConfigurator;
@@ -272,6 +273,7 @@ public class GroovityBuilder {
 		if(propsURL!=null){
 			configurators.add(new PropertiesURLConfigurator(propsURL));
 		}
+		configurators.add(new EnvConfigurator());
 		configurators.add(new SystemConfigurator());
 		if(configurator!=null){
 			configurators.add(configurator);
