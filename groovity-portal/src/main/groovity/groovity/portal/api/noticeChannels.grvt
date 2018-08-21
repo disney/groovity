@@ -21,9 +21,6 @@
  * KIND, either express or implied. See the Apache License for the specific
  * language governing permissions and limitations under the Apache License.
  *******************************************************************************/
-static AsyncChannel loadNotices
-static AsyncChannel inboxAccessed
-static AsyncChannel deleteDelivery
 static ScheduledFuture deliveryWatcher
 static ScheduledFuture inboxWatcher
 
@@ -38,16 +35,16 @@ static ModelFilter[] noticeFilters = [
 ]
 
 static init(){
-	loadNotices = accept(channel:[remote:'load-notices']){ msg ->
+	accept(channel:[remote:'load-notices']){ msg ->
 		def user = findUser(msg);
 		if(user){
 			msg.callback(Model.mapObject(user.notices, noticeFilters))
 		}
 	}
-	inboxAccessed = accept(channel:[remote:'inbox-accessed']){ msg ->
+	accept(channel:[remote:'inbox-accessed']){ msg ->
 		findUser(msg)?.inbox?.accessed()
 	}
-	deleteDelivery = accept(channel:[remote:'delete-delivery']){ msg ->
+	accept(channel:[remote:'delete-delivery']){ msg ->
 		def user = findUser(msg);
 		if(user){
 			load('/data/factory')('delivery',"personId=${user.id}&noticeId=${msg.data}")?.each{ it.delete() }
@@ -72,9 +69,6 @@ static start(){
 }
 
 static destroy(){
-	loadNotices?.close()
-	inboxAccessed?.close()
-	deleteDelivery?.close()
 	deliveryWatcher?.cancel(true)
 	inboxWatcher?.cancel(true)
 }

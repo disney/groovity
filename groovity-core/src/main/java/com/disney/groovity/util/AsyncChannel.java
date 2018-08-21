@@ -51,6 +51,7 @@ import java.util.logging.Logger;
  */
 public class AsyncChannel implements Closeable, GroovityConstants{
 	public static enum Policy{ drop, evict, block }
+	public static final String ASYNC_CHANNEL_OBSERVER_KEY = "__Async.Channel.Observer__";
 	public static final ConcurrentHashMap<Object, Collection<AsyncChannel>> ASYNC_CHANNEL_ROUTING = new ConcurrentHashMap<>();
 	private static final Logger log = Logger.getLogger(AsyncChannel.class.getName());
 	final Object key;
@@ -68,6 +69,7 @@ public class AsyncChannel implements Closeable, GroovityConstants{
 	final AtomicBoolean dirty = new AtomicBoolean(false);
 	final ReentrantLock dirtyLock = new ReentrantLock();
 	final DeadlockFreeExecutor asyncChannelExecutor;
+	AsyncChannelObserver observer;
 	public final AsyncChannelManager asyncChannelManager;
 	public static final AsyncChannelAnonymousManager asyncChannelAnonymousManager =
 			new AsyncChannelAnonymousManager();
@@ -157,6 +159,9 @@ public class AsyncChannel implements Closeable, GroovityConstants{
 						}
 						asyncChannelAnonymousManager.incrementNumberOfTotalChannelsClose();
 					}
+					if(observer!=null) {
+						observer.closed(AsyncChannel.this);
+					}
 				}
 			} catch (Exception e) {
 				completionFuture.completeExceptionally(e);
@@ -232,6 +237,10 @@ public class AsyncChannel implements Closeable, GroovityConstants{
 		}else{
 			//update AnonymousChannel MBean when anonymous channel is opened
 			asyncChannelAnonymousManager.incrementNumberOfTotalChannelsOpened();
+		}
+		if(binding.hasVariable(ASYNC_CHANNEL_OBSERVER_KEY)) {
+			channel.observer = ((AsyncChannelObserver)binding.getVariable(ASYNC_CHANNEL_OBSERVER_KEY));
+			channel.observer.opened(channel);
 		}
 		return channel;
 	}

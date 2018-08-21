@@ -21,7 +21,6 @@
  * KIND, either express or implied. See the Apache License for the specific
  * language governing permissions and limitations under the Apache License.
  *******************************************************************************/
-static AsyncChannel dataTransfers
 
 /**
  * Starts '/data/transfer' channel accepting requests in the format
@@ -40,7 +39,7 @@ static AsyncChannel dataTransfers
  ]
  ''')
 static start(){
-	dataTransfers = accept(channel:'/data/transfer'){ req->
+	accept(channel:'/data/transfer'){ req->
 		async{
 			try{
 				def transfers = req.transfer
@@ -96,8 +95,4 @@ static start(){
 			}
 		}
 	}
-}
-
-static destroy(){
-	dataTransfers?.close()
 }

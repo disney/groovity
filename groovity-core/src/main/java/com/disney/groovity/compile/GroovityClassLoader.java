@@ -57,6 +57,8 @@ import com.disney.groovity.GroovityObjectConverter;
 import com.disney.groovity.cache.Cache;
 import com.disney.groovity.cache.SoftCacheValueStore;
 import com.disney.groovity.conf.Configurator;
+import com.disney.groovity.util.AsyncChannel;
+import com.disney.groovity.util.AsyncChannelObserver;
 import com.disney.groovity.util.ScriptHelper;
 
 import groovy.lang.Closure;
@@ -70,7 +72,7 @@ import groovy.lang.Script;
  *
  * @author Alex Vigdor
  */
-public class GroovityClassLoader extends GroovyClassLoader implements GroovityConstants{
+public class GroovityClassLoader extends GroovyClassLoader implements GroovityConstants, AsyncChannelObserver{
 	private static final Logger log = Logger.getLogger(GroovityClassLoader.class.getName());
 	private ProtectionDomain protectionDomain;
 	private ScriptHelper helper;
@@ -90,6 +92,7 @@ public class GroovityClassLoader extends GroovyClassLoader implements GroovityCo
 	private Set<String> configurationKeys;
 	@SuppressWarnings("rawtypes")
 	private ConcurrentHashMap<String, Class> traits;
+	private Set<AsyncChannel> channels = ConcurrentHashMap.newKeySet();
 	
 	public GroovityClassLoader(String sourcePath, ClassLoader contextClassLoader,
 			CompilerConfiguration compilerConfiguration, Groovity groovity, ScheduledExecutorService scheduler, 
@@ -281,6 +284,7 @@ public class GroovityClassLoader extends GroovyClassLoader implements GroovityCo
 	
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public void destroy(){
+		channels.forEach(AsyncChannel::close);
 		Class[] cls = getLoadedClasses();
 		//log.info("WIll check "+cls.length+" classes for destroy from "+this.getTheClass());
 		for(Class cl: cls){
@@ -365,5 +369,19 @@ public class GroovityClassLoader extends GroovyClassLoader implements GroovityCo
 	
 	public Map<String, Object> getConfiguration(){
 		return readOnlyConfiguration;
+	}
+
+	@Override
+	public void opened(AsyncChannel channel) {
+		channels.add(channel);
+	}
+
+	@Override
+	public void closed(AsyncChannel channel) {
+		channels.remove(channel);
+	}
+
+	public Collection<AsyncChannel> getChannels(){
+		return Collections.unmodifiableCollection(channels);
 	}
 }

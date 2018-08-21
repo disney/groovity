@@ -693,6 +693,7 @@ public class Groovity implements GroovityConstants{
 						if(Modifier.isStatic(m.getModifiers()) && m.getParameterTypes().length==0){
 							LinkedHashMap<String, Object> variables = new LinkedHashMap<>();
 							Binding binding = new Binding(variables);
+							binding.setVariable(AsyncChannel.ASYNC_CHANNEL_OBSERVER_KEY, gcl);
 							if(bindingDecorator!=null){
 								bindingDecorator.decorateRecursive(variables);
 							}
@@ -735,6 +736,7 @@ public class Groovity implements GroovityConstants{
 						if(Modifier.isStatic(m.getModifiers()) && m.getParameterTypes().length==0){
 							LinkedHashMap<String, Object> variables = new LinkedHashMap<>();
 							Binding binding = new Binding(variables);
+							binding.setVariable(AsyncChannel.ASYNC_CHANNEL_OBSERVER_KEY, gcl);
 							if(bindingDecorator!=null){
 								bindingDecorator.decorateRecursive(variables);
 							}

@@ -21,9 +21,13 @@
  * KIND, either express or implied. See the Apache License for the specific
  * language governing permissions and limitations under the Apache License.
  *******************************************************************************/
-
-static init(){
-	accept(channel:[remote:'message']){ evt ->
-		evt.callback(evt.data.reverse())
-	}
+package com.disney.groovity.util;
+/**
+ * API for modules that want to observe when channels are opened or closed
+ * 
+ * @author Alex Vigdor
+ */
+public interface AsyncChannelObserver {
+	public void opened(AsyncChannel channel);
+	public void closed(AsyncChannel channel);
 }

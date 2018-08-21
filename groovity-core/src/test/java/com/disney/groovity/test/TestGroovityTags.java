@@ -34,6 +34,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
@@ -41,11 +43,13 @@ import java.util.logging.Logger;
 
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
+import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
 
+import com.disney.groovity.BindingDecorator;
 import com.disney.groovity.Groovity;
 import com.disney.groovity.GroovityBuilder;
 import com.disney.groovity.model.ModelJsonWriter;
@@ -69,6 +73,7 @@ public class TestGroovityTags {
 	static Groovity groovity;
 	static  ArrayList<LogRecord> logRecords = new ArrayList<>();;
 	static Logger testScriptLogger;
+	static CountDownLatch channelLatch = new CountDownLatch(1);
 	
 	@ClassRule
 	public static WireMockRule wireMockRule = new WireMockRule(28197);
@@ -97,11 +102,20 @@ public class TestGroovityTags {
 		testScriptLogger.setLevel(Level.FINE);
 		groovity = new GroovityBuilder()
 				.setSourceLocations(Arrays.asList(new File("src/test/resources/tags").toURI()))
+				.setBindingDecorator(new BindingDecorator() {
+					@Override
+					public void decorate(Map<String, Object> binding) {
+						binding.put("channelLatch", channelLatch);
+					}
+				})
 				.build();
 	}
 	
-	
-	
+	@AfterClass
+	public static void teardown() {
+		groovity.destroy();
+	}
+
 	protected String run(String path) throws InstantiationException, IllegalAccessException, ClassNotFoundException, IOException{
 		return run(path,new Binding());
 	}
@@ -524,6 +538,11 @@ public class TestGroovityTags {
 		Assert.assertEquals("<ul><li>\"0\"</li><li>\"1\"</li><li>\"2\"</li><li>\"3\"</li><li>\"4\"</li><li>\"5\"</li><li>\"6\"</li><li>\"7\"</li><li>\"8\"</li><li>\"9\"</li><li>\"10\"</li>" + 
 				"</ul>1,2,3,4,5,closed|1,2,3,4,5,6,7,8,9,10,closed|1,2,3,closed|5", output);
 		asyncChannelLogger.setLevel(prev);
+		Assert.assertEquals(1, channelLatch.getCount());
+		//compiling should trigger an automatic close of the old channel
+		groovity.compile(true, true, Arrays.asList("/accept.grvt"));
+		boolean success = channelLatch.await(5, TimeUnit.SECONDS);
+		Assert.assertEquals(true, success);
 	}
 	@Test
 	public void testWriteXml() throws Exception{
