@@ -73,21 +73,21 @@ def socket = ws(url:"${host}/ws/events"){
 }
 
 
-offer(channel:[event:'testEvent'], value:'12345')
+emit(event:'testEvent', value:'12345')
 
 socket([subscribe:'testEvent', id:"subbing"])
 assert subLatch.await(1, TimeUnit.SECONDS)
 
-offer(channel:[event:'testEvent'], value:'67890')
+emit(event:'testEvent', value:'67890')
 
-offer(channel:[user:'nobody', event:'testEvent'], value:'job not done')
+emit(user:'nobody', event:'testEvent', value:'job not done')
 
-offer(channel:[user:'method', event:'testEvent'], value:'job done')
+emit(user:'method', event:'testEvent', value:'job done')
 
 socket([unsubscribe:'testEvent', id:"unsubbing"])
 assert unsubLatch.await(1, TimeUnit.SECONDS)
 
-offer(channel:[event:'testEvent'], value:'abcdef')
+emit(event:'testEvent', value:'abcdef')
 
 socket([event:'message', data:'qwertyuiop', id:'reversed'])
 

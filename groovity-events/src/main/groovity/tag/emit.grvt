@@ -21,9 +21,43 @@
  * KIND, either express or implied. See the Apache License for the specific
  * language governing permissions and limitations under the Apache License.
  *******************************************************************************/
-
-static start(){
-	on(event:'message'){
-		it.reverse()
+ 
+@Tag(
+		info = "Emit an event that can be received by remote clients",
+		body = "optional alternative to value attribute, the streaming output or return value of the body closure may be used to produce the message value",
+		sample="emit(event:'contentUpdate',value:someContent)",
+		attrs = [ 
+				@Attr(
+						name = "event", 
+						info="The name of the event to emit to subscribed remote clients",
+						required = true
+				),
+				@Attr(
+						name = "user", 
+						info="The name of an authenticated user to restrict the event broadcast to",
+						required = false
+				),
+				@Attr(
+						name = "value", 
+						info="used to specify a message (or error) value; null is only allowed as a termination message indicating a sender closing a channel",
+						required = false
+				),
+				@Attr(
+						name = "timeout", 
+						info="number of seconds to try and enqueue the message to acceptors",
+						required = false
+				)
+			]
+	)
+class Emit{
+	def tag(Map atts, Closure body){
+		def event = resolve(atts,'event',String.class)
+		assert event
+		def channel = [event: event]
+		def user = resolve(atts,'user',String.class)
+		if(user){
+			channel.user = user
+		}
+		offer(*:atts, channel: channel, body)
 	}
 }

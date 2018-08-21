@@ -35,20 +35,18 @@ static ModelFilter[] noticeFilters = [
 ]
 
 static init(){
-	accept(channel:[remote:'load-notices']){ msg ->
-		def user = findUser(msg);
-		if(user){
-			msg.callback(Model.mapObject(user.notices, noticeFilters))
-		}
+	on(event:'load-notices'){ d, session ->
+		def user = findUser(session);
+		Model.mapObject(user.notices, noticeFilters)
 	}
-	accept(channel:[remote:'inbox-accessed']){ msg ->
-		findUser(msg)?.inbox?.accessed()
+	on(event:'inbox-accessed'){ d, session ->
+		findUser(session)?.inbox?.accessed()
 	}
-	accept(channel:[remote:'delete-delivery']){ msg ->
-		def user = findUser(msg);
+	on(event:'delete-delivery'){ id, session ->
+		def user = findUser(session);
 		if(user){
-			load('/data/factory')('delivery',"personId=${user.id}&noticeId=${msg.data}")?.each{ it.delete() }
-			offer(channel: [user: user.userName, event:'delivery-deleted']){ msg.data }
+			load('/data/factory')('delivery',"personId=${user.id}&noticeId=${id}")?.each{ it.delete() }
+			emit(user: user.userName, event:'delivery-deleted'){ id }
 		}
 	}
 	
@@ -60,11 +58,11 @@ static start(){
 	deliveryWatcher = factory.watch('delivery'){ ptr ->
 		def delivery = factory(ptr)
 		factory.invalidate('delivery',"personId=${delivery.person.id}")
-		offer(channel: [user: delivery.person.userName, event:'new-notice']){ delivery.notice }
+		emit(user: delivery.person.userName, event:'new-notice'){ delivery.notice }
 	}
 	inboxWatcher = factory.watch('inbox'){ ptr ->
 		def inbox = factory(ptr)
-		offer(channel: [user: inbox.person.userName, event:'inbox-status']){ inbox }
+		emit(user: inbox.person.userName, event:'inbox-status'){ inbox }
 	}
 }
 
@@ -73,14 +71,14 @@ static destroy(){
 	inboxWatcher?.cancel(true)
 }
 
-static findUser(msg){
-	def name = msg.session.userPrincipal?.name
+static findUser(session){
+	def name = session.userPrincipal?.name
 	def user = null
 	if(name){
 		user = load('/data/factory')('person',"userName=${name}")?.first()
 	}
-	if(!user && msg.callback){
-		msg.callback([error:"User ${name} not found"])
+	if(!user){
+		throw new Exception("User ${name} not found")
 	}
 	return user
 }
