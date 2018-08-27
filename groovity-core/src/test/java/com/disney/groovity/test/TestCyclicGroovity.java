@@ -24,11 +24,16 @@
 package com.disney.groovity.test;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.StringWriter;
+import java.lang.reflect.InvocationTargetException;
+import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.EnumSet;
 
+import org.junit.AfterClass;
 import org.junit.Assert;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 import com.disney.groovity.Groovity;
@@ -39,13 +44,27 @@ import groovy.lang.Binding;
 
 public class TestCyclicGroovity {
 	static Groovity groovity;
+	static Groovity cyclicGroovity;
 	static StringWriter groovyityOut;
+	
+	@BeforeClass
+	public static void setup() throws IllegalAccessException, IllegalArgumentException, InvocationTargetException, IOException, URISyntaxException {
+		groovity = new GroovityBuilder()
+				.setSourceLocations(Arrays.asList(new File("src/test/resources/static").toURI()))
+				.setSourcePhases(EnumSet.of(GroovityPhase.STARTUP))
+				.build();
+	}
+	
+	@AfterClass
+	public static void teardown() {
+		groovity.destroy();
+	}
 	
 	@Test
 	public void testCyclicChecking() throws Exception{
 		Throwable e = null;
 		try{
-			groovity = new GroovityBuilder()
+			new GroovityBuilder()
 					.setSourceLocations(Arrays.asList(new File("src/test/resources/staticbad").toURI()))
 					.setSourcePhases(EnumSet.of(GroovityPhase.STARTUP))
 					.build();
@@ -62,7 +81,7 @@ public class TestCyclicGroovity {
 	
 	@Test
 	public void testCyclicLoadChecking() throws Exception{
-		groovity = new GroovityBuilder()
+		Groovity groovity = new GroovityBuilder()
 				.setSourceLocations(Arrays.asList(new File("src/test/resources/cyclic").toURI()))
 				.setSourcePhases(EnumSet.of(GroovityPhase.STARTUP))
 				.build();
@@ -79,17 +98,13 @@ public class TestCyclicGroovity {
 		while(e!=null && !(e instanceof InstantiationException)){
 			e=e.getCause();
 		}
+		groovity.destroy();
 		Assert.assertNotNull("Expected InstantiationException",e);
 		Assert.assertEquals("Expected InstantiationException", InstantiationException.class, e.getClass());
 	}
 	
 	@Test
 	public void testNormalCode() throws Exception{
-		groovity = new GroovityBuilder()
-				.setSourceLocations(Arrays.asList(new File("src/test/resources/static").toURI()))
-				.setSourcePhases(EnumSet.of(GroovityPhase.STARTUP))
-				.build();
-		Exception e = null;
 		Binding binding = new Binding();
 		StringWriter writer = new StringWriter();
 		binding.setVariable("out", writer);
@@ -101,10 +116,6 @@ public class TestCyclicGroovity {
 	
 	@Test
 	public void testStaticBinding() throws Exception{
-		groovity = new GroovityBuilder()
-				.setSourceLocations(Arrays.asList(new File("src/test/resources/static").toURI()))
-				.setSourcePhases(EnumSet.of(GroovityPhase.STARTUP))
-				.build();
 		String result = groovity.run("/initBinding", new Binding()).toString();
 		Assert.assertEquals("http://disney.com/characters?name=Minnie", result);
 	}

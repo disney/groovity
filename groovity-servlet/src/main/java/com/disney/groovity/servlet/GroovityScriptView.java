@@ -110,12 +110,12 @@ public class GroovityScriptView implements AuthConstants{
 	boolean omitXmlDeclaration = false;
 
 	@SuppressWarnings("rawtypes")
-	public GroovityScriptView(String name, Class<Script> scriptClass, Groovity viewFactory, GroovityErrorHandlerChain errorHandlers, VerifierFactory verifierFactory, CORSFactory corsFactory){
+	public GroovityScriptView(String name, Class<Script> scriptClass, Map webMap, Groovity viewFactory, GroovityErrorHandlerChain errorHandlers, VerifierFactory verifierFactory, CORSFactory corsFactory){
 		this.name=name;
 		this.scriptClass=scriptClass;
 		this.viewFactory=viewFactory;
 		this.errorHandlers = errorHandlers;
-		this.webMap = getStaticMap("web");
+		this.webMap = webMap;
 		
 		//record static output declarations
 		this.outputs=getStaticValues("output");
@@ -246,26 +246,6 @@ public class GroovityScriptView implements AuthConstants{
 			}
 		}
 		return best;
-	}
-	@SuppressWarnings("rawtypes")
-	private Map getStaticMap(String fieldName){
-		try {
-			java.lang.reflect.Field outputField = scriptClass.getDeclaredField(fieldName);
-			if(Modifier.isStatic(outputField.getModifiers())){
-				outputField.setAccessible(true);
-				Object outputValue = outputField.get(null);
-				if(outputValue == null){
-					return null;
-				}
-				if(!(outputValue instanceof Map)){
-					throw new IllegalArgumentException("Expecting Map in field "+fieldName+", found "+outputValue.getClass().getName());
-				}
-				return (Map) outputValue;
-			}
-		}
-		catch(Exception e){
-		}
-		return null;
 	}
 	
 	@SuppressWarnings("rawtypes")

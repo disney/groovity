@@ -25,7 +25,6 @@ package com.disney.groovity.portal;
 
 import java.io.IOException;
 import java.security.Principal;
-import java.util.List;
 
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
@@ -42,7 +41,6 @@ import com.disney.groovity.servlet.GroovityServlet;
 import com.disney.http.auth.server.AuthenticatedRequestWrapper;
 
 import groovy.lang.Binding;
-import groovy.lang.GroovyObject;
 import groovy.lang.Script;
 /**
  * Add authenticated portal user and roles to the servlet request if present in the session; this will make the principal available to servlets and sockets,

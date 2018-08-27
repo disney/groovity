@@ -23,7 +23,6 @@
  *******************************************************************************/
 import com.disney.groovity.servlet.uri.PathTemplate;
 import static groovy.json.JsonOutput.toJson;
-import com.disney.groovity.GroovityVisitor;
 
 static web = [
 	path : "/groovity/servlet/admin/api/paths",
@@ -36,39 +35,34 @@ static web = [
 
 pathMap = new TreeMap(PathTemplate.COMPARATOR);
 conflictMap = new TreeMap(PathTemplate.COMPARATOR);
-getClass().classLoader.groovity.visit([
-	'visit':{
-		g, p, scriptClass ->	
-		
-		processor = {
-			pathTemplate ->
-			if(pathMap.containsKey(pathTemplate)){
-				if(conflictMap.containsKey(pathTemplate)){
-					log(debug:"Multiple conflicts for ${pathTemplate}")
-					conflictMap[pathTemplate] += scriptClass.name;
-				}
-				else{
-					log(debug:"First conflict for ${pathTemplate}")
-					conflictMap[pathTemplate] = [ scriptClass.name ];
-				}
+getClass().classLoader.scriptClasses.each{ scriptClass ->
+	processor = {
+		pathTemplate ->
+		if(pathMap.containsKey(pathTemplate)){
+			if(conflictMap.containsKey(pathTemplate)){
+				log(debug:"Multiple conflicts for ${pathTemplate}")
+				conflictMap[pathTemplate] += scriptClass.name;
 			}
 			else{
-				log(debug:"No conflicts for ${pathTemplate}")
-				pathMap[pathTemplate] = scriptClass.name
+				log(debug:"First conflict for ${pathTemplate}")
+				conflictMap[pathTemplate] = [ scriptClass.name ];
 			}
 		}
-		
-		try{
-			processor(new PathTemplate(scriptClass.web.path));
+		else{
+			log(debug:"No conflicts for ${pathTemplate}")
+			pathMap[pathTemplate] = scriptClass.name
 		}
-		catch(Exception e){}
-		try{
-			scriptClass.web.paths.collect({ new PathTemplate(it) }).each{ processor(it) };
-		}
-		catch(Exception e){}
-
 	}
-] as GroovityVisitor)
+	
+	try{
+		processor(new PathTemplate(scriptClass.web.path));
+	}
+	catch(Exception e){}
+	try{
+		scriptClass.web.paths.collect({ new PathTemplate(it) }).each{ processor(it) };
+	}
+	catch(Exception e){}
+}
 
 templateList = [];
 pathMap.collect(templateList,{k,v -> ["path":k.template,"view":v]});

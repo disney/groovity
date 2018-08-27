@@ -121,14 +121,14 @@ class Person implements java.security.Principal, DataModel, Stored, HasRowId, Ha
 	public Collection getRoles(HttpSession session, String rolePath, List allowedRoles){
 		def userRoles = getRoles();
 		def assumedRoles = session.getAttribute("assumedRoles");
-		def foundRoles = userRoles.findAll{ rolePath.startsWith(it.path) && allowedRoles.contains(it.role) }.collect{ it.role } ;
-		foundRoles.addAll( assumedRoles.findAll{ rolePath.startsWith(it.path) && allowedRoles.contains(it.role) }.collect{ it.role } );
-		if(allowedRoles.contains('auth')){
+		def foundRoles = userRoles.findAll{ rolePath.startsWith(it.path) && allowedRoles?.contains(it.role) }.collect{ it.role } ;
+		foundRoles.addAll( assumedRoles.findAll{ rolePath.startsWith(it.path) && allowedRoles?.contains(it.role) }.collect{ it.role } );
+		if(allowedRoles?.contains('auth')){
 			foundRoles.add('auth')
 		}
 		def pageRoles = session?.getAttribute('pageRoles')?.findAll{ rolePath.startsWith(it.key) }?.values().flatten()
 		if(pageRoles){
-			foundRoles.addAll(pageRoles?.findAll{ allowedRoles.contains(it) })
+			foundRoles.addAll(pageRoles?.findAll{ allowedRoles?.contains(it) })
 		}
 		foundRoles
 	}

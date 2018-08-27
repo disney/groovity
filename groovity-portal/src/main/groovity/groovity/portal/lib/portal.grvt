@@ -23,42 +23,21 @@
  *******************************************************************************/
 import javax.servlet.http.HttpSession
 import javax.websocket.Session
+import com.disney.groovity.portal.PortalSitemap
 
 static boolean bootstrapped = false;
+static PortalSitemap _sitemap
 
-@Field sitemap;
-@Field folders;
-
-def load(){
-	sitemap = getClass().getClassLoader().scriptClasses.collect{
-		def rval = null;
-		try{
-			java.lang.reflect.Field outputField = it.getDeclaredField("portal");
-			if(java.lang.reflect.Modifier.isStatic(outputField.getModifiers())){
-				String scriptPath = it.name.replaceAll("_{1}", "/").replaceAll("_{3}","_");
-				outputField.setAccessible(true);
-				rval =[scriptPath:scriptPath]
-				rval.putAll((Map)outputField.get(it));
-				if(!rval.containsKey('path')){
-					rval.put('path', scriptPath)
-				}
-			}
-		}
-		catch(Exception e){
-		}
-		rval
-	}.findAll{ it !=null};
-	folders = sitemap.groupBy{ 
-		it.path.substring(0,it.path.lastIndexOf("/"));
-	};
+static init(){
+	_sitemap = new PortalSitemap(getClassLoader().groovity)
 }
 
 def getSitemap(){
-	sitemap;
+	_sitemap.entries;
 }
 
 def getFolders(){
-	folders;
+	_sitemap.folders;
 }
 
 def getSubfolders(String folder){

@@ -31,6 +31,7 @@ import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.EnumSet;
 
+import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -55,6 +56,11 @@ public class TestTraits {
 				.setSourceLocations(Arrays.asList(new File("src/test/resources/traits").toURI()))
 				.setSourcePhases(EnumSet.of(GroovityPhase.STARTUP))
 				.build();
+	}
+	
+	@AfterClass
+	public static void teardown() {
+		groovity.destroy();
 	}
 	
 	@Test

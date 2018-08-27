@@ -36,6 +36,7 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiConsumer;
@@ -45,6 +46,7 @@ import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
+import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -57,6 +59,7 @@ import com.disney.groovity.GroovityObjectConverter;
 import com.disney.groovity.GroovityPhase;
 import com.disney.groovity.compile.GroovityClassLoader;
 import com.disney.groovity.conf.Configurator;
+import com.disney.groovity.source.GroovitySourceLocator;
 
 import groovy.lang.Binding;
 import groovy.lang.Script;
@@ -89,16 +92,21 @@ public class TestCoreGroovity {
 		confLogger.addHandler(testHandler);
 		confLogger.setUseParentHandlers(false);
 		groovyityOut = new StringWriter();
-		groovity = setupGroovity(true,groovyityOut);
+		groovity = setupGroovity(Arrays.asList(new File("src/test/resources/core").toURI(),new File("src/test/resources/case").toURI()),true,groovyityOut);
 		System.out.println(groovyityOut.toString());
 	}
 	
-	private static Groovity setupGroovity(boolean caseSensitive, final Writer out) throws IllegalAccessException, IllegalArgumentException, InvocationTargetException, IOException, URISyntaxException{
+	@AfterClass
+	public static void teardown() {
+		groovity.destroy();
+	}
+	
+	private static Groovity setupGroovity(List<URI> sourceLocations, boolean caseSensitive, final Writer out) throws IllegalAccessException, IllegalArgumentException, InvocationTargetException, IOException, URISyntaxException{
 		Map<String,Object> defaultBinding = new HashMap<>();
 		defaultBinding.put("hello", "world");
 		defaultBinding.put("extensions", "overrideMe");
 		Groovity groovity = new GroovityBuilder()
-				.setSourceLocations(Arrays.asList(new File("src/test/resources/core").toURI()))
+				.setSourceLocations(sourceLocations)
 				.setSourcePhases(EnumSet.of(GroovityPhase.STARTUP))
 				.setCaseSensitive(caseSensitive)
 				.setDefaultBinding(defaultBinding)
@@ -155,11 +163,12 @@ public class TestCoreGroovity {
 	}
 	
 	@Test public void testCaseInsensitive() throws Exception{
-		Groovity cig = setupGroovity(false, new StringWriter());
+		Groovity cig = setupGroovity(Arrays.asList(new File("src/test/resources/case").toURI()),false, new StringWriter());
 		Binding binding = new Binding();
 		StringWriter writer = new StringWriter();
 		binding.setVariable("out", writer);
 		cig.run("/mixedcase", binding);
+		cig.destroy();
 		Assert.assertEquals("OK", writer.toString().trim());
 	}
 	
@@ -366,6 +375,11 @@ public class TestCoreGroovity {
 		Assert.assertNull(GroovityObjectConverter.convert("", Date.class));
 	}
 	
+	@Test public void testSchedule() throws InstantiationException, IllegalAccessException, ClassNotFoundException {
+		Script s = groovity.load("/scheduled", new Binding());
+		s.invokeMethod("await", null);
+	}
+
 	protected String run(String path, Binding binding) throws InstantiationException, IllegalAccessException, ClassNotFoundException, IOException{
 		StringWriter writer = new StringWriter();
 		binding.setVariable("out", writer);

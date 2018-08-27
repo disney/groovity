@@ -24,65 +24,60 @@
 import com.disney.groovity.servlet.uri.PathTemplate;
 import com.disney.groovity.servlet.PathTemplateMethods;
 import static groovy.json.JsonOutput.toJson;
-import com.disney.groovity.GroovityVisitor;
 
 pathMap = new TreeMap();
 conflictMap = new TreeMap();
-getClass().classLoader.groovity.visit([
-	'visit':{
-		g, p, scriptClass ->
-		
-		processor = {
-			pathTemplate ->
-			if(pathMap.containsKey(pathTemplate)){
-				if(conflictMap.containsKey(pathTemplate)){
-					log(debug:"Multiple conflicts for ${pathTemplate}")
-					conflictMap[pathTemplate] += scriptClass.name;
-				}
-				else{
-					log(debug:"First conflict for ${pathTemplate}")
-					conflictMap[pathTemplate] = [ scriptClass.name ];
-				}
+getClass().classLoader.scriptClasses.each{ scriptClass ->
+	processor = {
+		pathTemplate ->
+		if(pathMap.containsKey(pathTemplate)){
+			if(conflictMap.containsKey(pathTemplate)){
+				log(debug:"Multiple conflicts for ${pathTemplate}")
+				conflictMap[pathTemplate] += scriptClass.name;
 			}
 			else{
-				log(debug:"No conflicts for ${pathTemplate}")
-				pathMap[pathTemplate] = scriptClass.name
+				log(debug:"First conflict for ${pathTemplate}")
+				conflictMap[pathTemplate] = [ scriptClass.name ];
 			}
 		}
-		def methods = null;
-		try{
-			if(scriptClass.web?.method){
-				methods = [scriptClass.web.method]
-			}
+		else{
+			log(debug:"No conflicts for ${pathTemplate}")
+			pathMap[pathTemplate] = scriptClass.name
 		}
-		catch(Exception e){}
-		if(!methods){
-			try{
-				if(scriptClass.web?.methods){
-					methods = scriptClass.web.methods
-				}
-			}
-			catch(Exception e2){}
-		}
-		if(!methods){
-			//default to full set
-			methods = ['GET','POST','PUT','DELETE']
-		}
-		try{
-			methods.each{ method ->
-				processor(new PathTemplateMethods(new PathTemplate(scriptClass.web.path),[method] as HashSet));
-			}
-		}
-		catch(Exception e){}
-		try{
-			methods.each{ method ->
-				scriptClass.web.paths.collect({ new PathTemplateMethods(new PathTemplate(it),[method] as HashSet) }).each{ processor(it) };
-			}
-		}
-		catch(Exception e){}
-
 	}
-] as GroovityVisitor)
+	def methods = null;
+	try{
+		if(scriptClass.web?.method){
+			methods = [scriptClass.web.method]
+		}
+	}
+	catch(Exception e){}
+	if(!methods){
+		try{
+			if(scriptClass.web?.methods){
+				methods = scriptClass.web.methods
+			}
+		}
+		catch(Exception e2){}
+	}
+	if(!methods){
+		//default to full set
+		methods = ['GET','POST','PUT','DELETE']
+	}
+	try{
+		methods.each{ method ->
+			processor(new PathTemplateMethods(new PathTemplate(scriptClass.web.path),[method] as HashSet));
+		}
+	}
+	catch(Exception e){}
+	try{
+		methods.each{ method ->
+			scriptClass.web.paths.collect({ new PathTemplateMethods(new PathTemplate(it),[method] as HashSet) }).each{ processor(it) };
+		}
+	}
+	catch(Exception e){}
+
+}
 
 templateList = [];
 pathMap.collect(templateList,{k,v -> ["path":k,"view":v]});

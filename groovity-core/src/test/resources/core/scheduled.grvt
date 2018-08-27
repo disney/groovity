@@ -21,15 +21,13 @@
  * KIND, either express or implied. See the Apache License for the specific
  * language governing permissions and limitations under the Apache License.
  *******************************************************************************/
-package com.disney.groovity;
+static schedule="5ms"
 
-import groovy.lang.Script;
-/**
- * Interface for components that would like to be able to scan all the compiled scripts in a groovity,
- * e.g. for introspection or registration of scripts with external frameworks
- *
- * @author Alex Vigdor
- */
-public interface GroovityVisitor {
-	public void visit(Groovity groovity, String scriptPath, Class<Script> scriptClass);
+static CountDownLatch latch = new CountDownLatch(5)
+
+def await(){
+	if(!latch.await(100,TimeUnit.MILLISECONDS)){
+		throw new Exception('schedule failed')
+	}
 }
+latch.countDown()

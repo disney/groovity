@@ -35,6 +35,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -60,6 +61,11 @@ public class TestExtGroovity {
 		groovyityOut = new StringWriter();
 		groovity = setupGroovity(true,groovyityOut);
 		System.out.println(groovyityOut.toString());
+	}
+	
+	@AfterClass
+	public static void teardown() {
+		groovity.destroy();
 	}
 	
 	private static Groovity setupGroovity(boolean caseSensitive, final Writer out) throws IllegalAccessException, IllegalArgumentException, InvocationTargetException, IOException, URISyntaxException{

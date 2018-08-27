@@ -32,8 +32,7 @@ static ScheduledExecutorService watchService
 static init(){
 	registry = new DataTypeRegistry()
 	def groovity = getClassLoader().groovity
-	groovity.addListener(registry)
-	groovity.visit(registry)
+	groovity.addObserver(registry)
 	watchService = Executors.newScheduledThreadPool(Runtime.runtime.availableProcessors()*4)
 }
 

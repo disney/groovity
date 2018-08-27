@@ -62,22 +62,24 @@ class On{
 		def event = resolve(atts,'event',String.class)
 		assert event
 		accept(*:atts, channel: [remote: event]){ msg->
-			def rval
-			try{
-				if(body.maximumNumberOfParameters > 1){
-					rval = body.call(msg.data, msg.session)
+			async{
+				def rval
+				try{
+					if(body.maximumNumberOfParameters > 1){
+						rval = body.call(msg.data, msg.session)
+					}
+					else{
+						rval = body.call(msg.data)
+					}
 				}
-				else{
-					rval = body.call(msg.data)
+				catch(Throwable th){
+					def err = "Error processing remote message on channel '${atts.event}'"
+					log(error: err, thrown: th)
+					rval = [error: "${err}: ${th.message}"]
 				}
-			}
-			catch(Throwable th){
-				def err = "Error processing remote message on channel '${atts.event}'"
-				log(error: err, thrown: th)
-				rval = [error: "${err}: ${th.message}"]
-			}
-			if(msg.callback){
-				msg.callback(rval)
+				if(msg.callback){
+					msg.callback(rval)
+				}
 			}
 		}
 	}

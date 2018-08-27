@@ -91,6 +91,7 @@ public class HttpLocatorTest {
 		Script script = groovity.load("/test",binding);
 		binding.setProperty("out", writer);
 		script.run();
+		groovity.destroy();
 		Assert.assertEquals("hello", writer.toString());
 	}
 }

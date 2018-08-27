@@ -99,7 +99,7 @@ if(roles==null){
 	if(request.userPrincipal){
 		roles = request.userPrincipal.getRoles(request.session, rolePath, portalPageConfig.roles)
 	}
-	else if(portalPageConfig.roles.contains('anon')){
+	else if(portalPageConfig.roles?.contains('anon')){
 		roles = ['anon']
 	}
 	else{

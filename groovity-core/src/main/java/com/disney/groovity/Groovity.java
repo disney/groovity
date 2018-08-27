@@ -98,7 +98,6 @@ import org.codehaus.groovy.tools.Utilities;
 import com.disney.groovity.cache.Caches;
 import com.disney.groovity.compile.CompilerConfigurationDecorator;
 import com.disney.groovity.compile.GroovityASTTransformation;
-import com.disney.groovity.compile.GroovityClassListener;
 import com.disney.groovity.compile.GroovityClassLoader;
 import com.disney.groovity.compile.GroovityCompilerEvent;
 import com.disney.groovity.compile.GroovityCompilerEvent.Change;
@@ -160,7 +159,7 @@ public class Groovity implements GroovityConstants{
 	private final ConcurrentHashMap<String, Class<Script>> embeddedScripts = new ConcurrentHashMap<String, Class<Script>>();
 	private File jarDirectory = null;
 	private ClassLoader parentLoader;
-	private List<GroovityClassListener> listeners = new ArrayList<GroovityClassListener>();
+	private List<GroovityObserver> observers = new ArrayList<GroovityObserver>();
 	private GroovitySourceLocator[] sourceLocators;
 	private EnumSet<GroovityPhase> sourcePhases;
 	private EnumSet<GroovityPhase> jarPhases;
@@ -380,10 +379,16 @@ public class Groovity implements GroovityConstants{
 		}
 		tagLib.init(this);
 		compilerConfigurationDecorators = new ArrayList<>();
-		Iterator<CompilerConfigurationDecorator> decs = ServiceLoader.load(CompilerConfigurationDecorator.class,parentLoader!=null?parentLoader:Thread.currentThread().getContextClassLoader()).iterator();
+		ClassLoader loader = parentLoader!=null?parentLoader:Thread.currentThread().getContextClassLoader();
+		Iterator<CompilerConfigurationDecorator> decs = ServiceLoader.load(CompilerConfigurationDecorator.class,loader).iterator();
 		decs.forEachRemaining(compilerConfigurationDecorators::add);
 		if(log.isLoggable(Level.FINE)){
 			log.fine("Got compiler decorators from service loader "+compilerConfigurationDecorators);
+		}
+		Iterator<GroovityObserver> obs = ServiceLoader.load(GroovityObserver.class, loader).iterator();
+		obs.forEachRemaining(this::addObserver);
+		if(log.isLoggable(Level.FINE)){
+			log.fine("Got observers from service loader "+observers);
 		}
 		loadClasses(init);
 		if(sourcePhases!=null && sourcePhases.contains(GroovityPhase.STARTUP) && sourceLocators!=null && sourceLocators.length>0){
@@ -463,7 +468,7 @@ public class Groovity implements GroovityConstants{
 			configureAll();
 		}
 		//now start all scripts
-		for(Class<?> c: getGroovityScriptClasses()){
+		for(Class<Script> c: getGroovityScriptClasses()){
 			startClass(c);
 		}
 		//init locators AFTER compile, to avoid scheduled compilation starting before startup is complete
@@ -497,6 +502,7 @@ public class Groovity implements GroovityConstants{
 	
 	public void destroy(){
 		if(started.compareAndSet(true, false)) {
+			observers.forEach(o->{o.destroy(this);});
 			if(configExecutor!=null){
 				configExecutor.shutdownNow();
 				configurator.destroy();
@@ -539,9 +545,10 @@ public class Groovity implements GroovityConstants{
 		tagLib.destroy();
 	}
 	
-	public void visit(GroovityVisitor visitor){
+	public void visit(GroovityObserver visitor){
 		for(Class<Script> sc: getGroovityScriptClasses()){
-			visitor.visit(this, getScriptName(getSourcePath(sc)), sc);
+			GroovityClassLoader gcl = (GroovityClassLoader) sc.getClassLoader();
+			visitor.scriptStart(this, gcl.getScriptName(), sc);
 		}
 	}
 	/**
@@ -721,7 +728,7 @@ public class Groovity implements GroovityConstants{
 		}
 	}
 	
-	protected void startClass(Class<?> clz){
+	protected void startClass(Class<Script> clz){
 		if(clz!=null){
 			final GroovityClassLoader gcl = (GroovityClassLoader)clz.getClassLoader();
 			Class<?>[] cls = gcl.getLoadedClasses();
@@ -759,6 +766,16 @@ public class Groovity implements GroovityConstants{
 					catch (Exception e) {
 						log.log(Level.SEVERE,"Error starting "+cl,e);
 					} 
+				}
+			}
+			if(observers!=null){
+				for(GroovityObserver listener:observers){
+					try {
+						listener.scriptStart(this, gcl.getScriptName(), clz);
+					}
+					catch(Throwable th) {
+						log.log(Level.WARNING, "Error in GroovityObserver.scriptStart() for "+gcl.getScriptName(), th);
+					}
 				}
 			}
 		}
@@ -911,11 +928,6 @@ public class Groovity implements GroovityConstants{
 			Class<Script> theClass = getScriptClass(scriptName);
 			if(init) {
 				initClass(theClass);
-			}
-			if(listeners!=null){
-				for(GroovityClassListener listener:listeners){
-					listener.scriptUpdated(this, scriptName, theClass);
-				}
 			}
 		}
 	}
@@ -1189,11 +1201,6 @@ public class Groovity implements GroovityConstants{
 			}
 			scriptDates.put(scriptNameFixed,newScriptDates.get(scriptName));
 			Class<Script> oldClass = scripts.put(scriptNameFixed,theClass);
-			if(listeners!=null){
-				for(GroovityClassListener listener:listeners){
-					listener.scriptUpdated(this,scriptName, theClass);
-				}
-			}
 			if(oldClass!=null){
 				toDestroy.add(oldClass);
 			}
@@ -1206,12 +1213,6 @@ public class Groovity implements GroovityConstants{
 			String nameCaseFixed = fixCase(name);
 			Class<Script> oldClass = scripts.remove(nameCaseFixed);
 			scriptDates.remove(nameCaseFixed);
-			// notify listeners
-			if(listeners!=null){
-				for(GroovityClassListener listener:listeners){
-					listener.scriptDeleted(name);
-				}
-			}
 			if(oldClass!=null){
 				log.info("Deleting removed source "+name+" / class "+oldClass.getName());
 				toDestroy.add(oldClass);
@@ -1228,7 +1229,19 @@ public class Groovity implements GroovityConstants{
 		if(init) {
 			//now destroy
 			for(Class<Script> del: toDestroy){
-				((GroovityClassLoader)del.getClassLoader()).destroy();
+				GroovityClassLoader gcl = ((GroovityClassLoader)del.getClassLoader());
+				// notify listeners
+				if(observers!=null){
+					for(GroovityObserver listener:observers){
+						try {
+							listener.scriptDestroy(this,gcl.getScriptName(),del);
+						}
+						catch(Throwable th) {
+							log.log(Level.WARNING, "Error in GroovityObserver.scriptDestroy() for "+gcl.getScriptName(), th);
+						}
+					}
+				}
+				gcl.destroy();
 			}
 			if(started.get()) {
 				//now start new scripts
@@ -1497,16 +1510,17 @@ public class Groovity implements GroovityConstants{
 		this.parentLoader = parentLoader;
 	}
 
-	public List<GroovityClassListener> getListeners() {
-		return listeners;
+	public List<GroovityObserver> getObservers() {
+		return observers;
 	}
 
-	protected void setListeners(List<GroovityClassListener> listeners) {
-		this.listeners = listeners;
+	protected void setObservers(List<GroovityObserver> observers) {
+		this.observers = observers;
 	}
 	
-	public void addListener(GroovityClassListener listener){
-		listeners.add(listener);
+	public void addObserver(GroovityObserver observer){
+		observers.add(observer);
+		visit(observer);
 	}
 
 	public GroovitySourceLocator[] getSourceLocators() {

@@ -48,8 +48,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.websocket.Session;
 
 import com.disney.groovity.Groovity;
-import com.disney.groovity.GroovityVisitor;
-import com.disney.groovity.compile.GroovityClassListener;
+import com.disney.groovity.GroovityObserver;
 import com.disney.groovity.servlet.auth.VerifierFactory;
 import com.disney.groovity.servlet.cors.CORSFactory;
 import com.disney.groovity.servlet.error.GroovityErrorHandlerChain;
@@ -63,7 +62,7 @@ import com.disney.groovity.websocket.WebSocket;
  * @author Alex Vigdor
  *
  */
-public class GroovityScriptViewFactory implements GroovityClassListener, GroovityVisitor{
+public class GroovityScriptViewFactory{
 	private static final Logger logger = Logger.getLogger(GroovityScriptViewFactory.class.getName());
 	private final ConcurrentHashMap<String, GroovityScriptView> views = new ConcurrentHashMap<String, GroovityScriptView>();
 	private final ConcurrentSkipListMap<PathTemplateMethods, GroovityScriptView> viewPaths = new ConcurrentSkipListMap<PathTemplateMethods, GroovityScriptView>();
@@ -91,10 +90,8 @@ public class GroovityScriptViewFactory implements GroovityClassListener, Groovit
 		if(factory==null){
 			throw new IllegalArgumentException("GroovityScriptViewFactory requires a non-null Groovity instance to provide scipts");
 		}
-		//pick up future changes
-		factory.addListener(this);
-		//scan initial state
-		factory.visit(this);
+		//observe script factory for changes to scripts
+		factory.addObserver(new GroovityScriptViewObserver());
 	}
 	
 	public void destroy(){
@@ -172,71 +169,7 @@ public class GroovityScriptViewFactory implements GroovityClassListener, Groovit
 		this.factory=groovity;
 	}
 	
-	public void scriptUpdated(Groovity groovity, String scriptPath, Class<Script> scriptClass) {
-		if(logger.isLoggable(Level.FINE)){
-			logger.fine("Registering new script view "+scriptPath);
-		}
-		
-		GroovityScriptView view = new GroovityScriptView(scriptPath, scriptClass, groovity, errorHandlers, verifierFactory, corsFactory);
-		GroovityScriptView oldView = views.put(scriptPath, view);
-		Collection<PathTemplateMethods> paths = view.getPathTemplateMethods();
-		Collection<PathTemplateMethods> oldPaths = oldView!=null?oldView.getPathTemplateMethods():null;
-		if(oldPaths!=null){
-			Collection<PathTemplateMethods> toRemove = oldPaths;
-			if(paths!=null){
-				toRemove =  oldPaths.stream().filter(path -> !paths.contains(path)).collect(Collectors.toSet());
-			}
-			//System.out.println("Removing paths "+toRemove);
-			for(PathTemplateMethods tmpl:toRemove){
-				viewPaths.remove(tmpl);
-			}
-		}
-		if(paths!=null){
-			for(PathTemplateMethods tmpl:paths){
-				//System.out.println("Registering path "+tmpl.getTemplate());
-				viewPaths.put(tmpl, view);
-			}
-		}
-		List<String> oldSockets = oldView!=null?oldView.getSocketNames():null;
-		if(oldSockets!=null){
-			for(String oldSock:oldSockets){
-				if(logger.isLoggable(Level.FINE)){
-					logger.fine("DeRegistering socket "+oldSock);
-				}
-				sockets.remove(oldSock);
-			}
-		}
-		List<String> socketNames = view.getSocketNames();
-		if(socketNames!=null){
-			for(String sock: socketNames){
-				if(logger.isLoggable(Level.FINE)){
-					logger.info("Registering socket "+sock);
-				}
-				sockets.put(sock, view);
-			}
-		}
-		buildPathViews();
-	}
 
-	public void scriptDeleted(String scriptPath) {
-		GroovityScriptView oldView = views.remove(scriptPath);
-		if(oldView!=null){
-			Collection<PathTemplateMethods> oldTemplates = oldView.getPathTemplateMethods();
-			if(oldTemplates!=null){
-				for(PathTemplateMethods tmpl: oldTemplates){
-					//System.out.println("Removing path "+tmpl);
-					viewPaths.remove(tmpl,oldView);
-				}
-			}
-			List<String> oldSockets = oldView!=null?oldView.getSocketNames():null;
-			if(oldSockets!=null){
-				for(String oldSock:oldSockets){
-					sockets.remove(oldSock);
-				}
-			}
-			buildPathViews();
-		}
-	}
 	
 	public GroovityErrorHandlerChain getErrorHandlers() {
 		return errorHandlers;
@@ -252,10 +185,6 @@ public class GroovityScriptViewFactory implements GroovityClassListener, Groovit
 	
 	public ServletContext getServletContext(){
 		return servletContext;
-	}
-
-	public void visit(Groovity groovity, String scriptPath, Class<Script> scriptClass) {
-		scriptUpdated(groovity, scriptPath, scriptClass);
 	}
 
 	public long getSocketOpenCount() {
@@ -303,6 +232,86 @@ public class GroovityScriptViewFactory implements GroovityClassListener, Groovit
 			return pathTemplateMethods.compareTo(o.pathTemplateMethods);
 		}
 		
+	}
+	
+	private class GroovityScriptViewObserver implements GroovityObserver.Field{
+		@Override
+		public String getField() {
+			return "web";
+		}
+
+		@Override
+		public void destroy(Groovity groovity) {
+			
+		}
+		public void scriptStart(Groovity groovity, String scriptPath, Class<Script> scriptClass, Object web) {
+			if(logger.isLoggable(Level.FINE)){
+				logger.fine("Registering new script view "+scriptPath);
+			}
+			if(!(web instanceof Map)) {
+				throw new IllegalArgumentException("static web field must contain a Map for configuration");
+			}
+			@SuppressWarnings("rawtypes")
+			GroovityScriptView view = new GroovityScriptView(scriptPath, scriptClass, (Map) web, groovity, errorHandlers, verifierFactory, corsFactory);
+			GroovityScriptView oldView = views.put(scriptPath, view);
+			Collection<PathTemplateMethods> paths = view.getPathTemplateMethods();
+			Collection<PathTemplateMethods> oldPaths = oldView!=null?oldView.getPathTemplateMethods():null;
+			if(oldPaths!=null){
+				Collection<PathTemplateMethods> toRemove = oldPaths;
+				if(paths!=null){
+					toRemove =  oldPaths.stream().filter(path -> !paths.contains(path)).collect(Collectors.toSet());
+				}
+				//System.out.println("Removing paths "+toRemove);
+				for(PathTemplateMethods tmpl:toRemove){
+					viewPaths.remove(tmpl);
+				}
+			}
+			if(paths!=null){
+				for(PathTemplateMethods tmpl:paths){
+					//System.out.println("Registering path "+tmpl.getTemplate());
+					viewPaths.put(tmpl, view);
+				}
+			}
+			List<String> oldSockets = oldView!=null?oldView.getSocketNames():null;
+			if(oldSockets!=null){
+				for(String oldSock:oldSockets){
+					if(logger.isLoggable(Level.FINE)){
+						logger.fine("DeRegistering socket "+oldSock);
+					}
+					sockets.remove(oldSock);
+				}
+			}
+			List<String> socketNames = view.getSocketNames();
+			if(socketNames!=null){
+				for(String sock: socketNames){
+					if(logger.isLoggable(Level.FINE)){
+						logger.info("Registering socket "+sock);
+					}
+					sockets.put(sock, view);
+				}
+			}
+			buildPathViews();
+		}
+
+		public void scriptDestroy(Groovity groovity, String scriptPath, Class<Script> scriptClass, Object web) {
+			GroovityScriptView oldView = views.remove(scriptPath);
+			if(oldView!=null){
+				Collection<PathTemplateMethods> oldTemplates = oldView.getPathTemplateMethods();
+				if(oldTemplates!=null){
+					for(PathTemplateMethods tmpl: oldTemplates){
+						//System.out.println("Removing path "+tmpl);
+						viewPaths.remove(tmpl,oldView);
+					}
+				}
+				List<String> oldSockets = oldView!=null?oldView.getSocketNames():null;
+				if(oldSockets!=null){
+					for(String oldSock:oldSockets){
+						sockets.remove(oldSock);
+					}
+				}
+				buildPathViews();
+			}
+		}
 	}
 
 }

@@ -26,8 +26,7 @@ package com.disney.groovity.data;
 import java.util.concurrent.ConcurrentSkipListSet;
 
 import com.disney.groovity.Groovity;
-import com.disney.groovity.GroovityVisitor;
-import com.disney.groovity.compile.GroovityClassListener;
+import com.disney.groovity.GroovityObserver;
 
 import groovy.lang.Script;
 /**
@@ -36,11 +35,11 @@ import groovy.lang.Script;
  * @author Alex Vigdor
  *
  */
-public class DataTypeRegistry implements GroovityVisitor, GroovityClassListener {
+public class DataTypeRegistry implements GroovityObserver {
 	ConcurrentSkipListSet<String> knownDataTypes = new ConcurrentSkipListSet<>();
 	
 	@Override
-	public void scriptUpdated(Groovity groovity, String scriptPath, Class<Script> scriptClass) {
+	public void scriptStart(Groovity groovity, String scriptPath, Class<Script> scriptClass) {
 		String tn = getTypeName(scriptPath);
 		if(tn!=null) {
 			knownDataTypes.add(tn);
@@ -55,20 +54,19 @@ public class DataTypeRegistry implements GroovityVisitor, GroovityClassListener 
 	}
 	
 	@Override
-	public void scriptDeleted(String scriptPath) {
+	public void scriptDestroy(Groovity groovity, String scriptPath, Class<Script> scriptClass) {
 		String tn = getTypeName(scriptPath);
 		if(tn!=null) {
 			knownDataTypes.remove(tn);
 		}
 	}
-
-	@Override
-	public void visit(Groovity groovity, String scriptPath, Class<Script> scriptClass) {
-		scriptUpdated(groovity, scriptPath, scriptClass);
-	}
 	
 	public boolean isKnownType(String type) {
 		return knownDataTypes.contains(type);
+	}
+
+	@Override
+	public void destroy(Groovity groovity) {
 	}
 
 }

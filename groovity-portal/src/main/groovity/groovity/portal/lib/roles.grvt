@@ -22,22 +22,18 @@
  * language governing permissions and limitations under the Apache License.
  *******************************************************************************/
 import static java.lang.reflect.Modifier.isStatic;
+import com.disney.groovity.portal.PortalRoleRegistry
 
-@Field Map<Class,List> rolesConfiguration;
+static PortalRoleRegistry _registry
+
+static init(){
+	_registry = new PortalRoleRegistry(getClassLoader().groovity)
+}
+
 @Field Map<String,List<String>> pathRoles;
 @Field Map<String,Map> pathTree;
 
 def load(){
-	rolesConfiguration = getClass().getClassLoader().scriptClasses.findAll{
-		it.declaredFields.find{ 
-			if(it.name=='portal' && isStatic(it.modifiers)){
-				it.setAccessible(true);
-				return it.get(null)?.roles 
-			}
-		}
-	}.collectEntries{
-		[it,it.portal]
-	};
 	//log.info("role config is ${rolesConfiguration}");
 	pathRoles = [:];
 	def pathAdder = { path, roles ->
@@ -55,13 +51,10 @@ def load(){
 			pl.add('admin');
 		}
 	}
-	rolesConfiguration.each { entry ->
-		String sourcePath = entry.value.get('path')
-		if(!sourcePath){
-			sourcePath = entry.key.classLoader.sourcePath - '.grvt';
-		}
+	_registry.entries.each { entry ->
+		String sourcePath = entry.key
 		//log.info("loading property paths for ${sourcePath}");
-		def roles = entry.value.roles;
+		def roles = entry.value
 		pathAdder(sourcePath,roles)
 		int ls = sourcePath.lastIndexOf("/");
 		while(ls >= 0){
@@ -89,12 +82,6 @@ def load(){
 	pathTree = [:];
 	pathRecursion("/",pathTree);
 	//log.info("Path tree is ${pathTree}");
-}
-
-
-@Function(info="Return a complete map of script classes to their known roles")
-public Map<Class,List> getRolesConfiguration(){
-	rolesConfiguration
 }
 
 @Function(info="Return a list of know roles for the given path")
