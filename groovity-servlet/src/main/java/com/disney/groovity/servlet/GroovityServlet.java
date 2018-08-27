@@ -371,7 +371,7 @@ public class GroovityServlet extends HttpServlet implements Servlet {
 				// register websocket endpoint
 				webSocketServer.addEndpoint(ServerEndpointConfig.Builder
 						.create(GroovityServerEndpoint.class, "/ws/{socketName}")
-						.configurator(new GroovityServerEndpoint.Configurator(groovityScriptViewFactory)).build());
+						.configurator(new GroovityServerEndpoint.Configurator(groovityScriptViewFactory, getServletContext())).build());
 				LOG.info("Created groovity web socket endpoint");
 			}
 			LOG.info("Completed initialization of GroovityServlet");

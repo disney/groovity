@@ -25,10 +25,16 @@ package com.disney.groovity.servlet;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiConsumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import javax.servlet.ServletContext;
 import javax.servlet.http.HttpSession;
+import javax.servlet.http.HttpSessionEvent;
+import javax.servlet.http.HttpSessionListener;
 import javax.websocket.CloseReason;
 import javax.websocket.Endpoint;
 import javax.websocket.EndpointConfig;
@@ -49,9 +55,13 @@ public class GroovityServerEndpoint extends Endpoint{
 	private static Logger log = Logger.getLogger(GroovityServerEndpoint.class.getSimpleName());
 	private GroovityScriptViewFactory factory;
 	private WebSocket socket = null;
+	private BiConsumer<HttpSession, Session> sessionMapper;
+	private BiConsumer<HttpSession, Session> sessionCloser;
 	
-	public GroovityServerEndpoint(GroovityScriptViewFactory factory){
+	public GroovityServerEndpoint(GroovityScriptViewFactory factory, BiConsumer<HttpSession, Session> sessionMapper, BiConsumer<HttpSession, Session> sessionCloser){
 		this.factory=factory;
+		this.sessionMapper = sessionMapper;
+		this.sessionCloser = sessionCloser;
 	}
 
 	@Override
@@ -64,6 +74,10 @@ public class GroovityServerEndpoint extends Endpoint{
 			try {
 				socketName = (String)pathparms.get("socketName");
 				socket = factory.createSocket(socketName, session);
+				HttpSession hs = (HttpSession) session.getUserProperties().get(HttpSession.class.getName());
+				if(hs!=null) {
+					sessionMapper.accept(hs, session);
+				}
 			} catch (Exception e) {
 				err = e;
 				log.log(Level.SEVERE,"Error opening socket "+socketName,e);
@@ -84,6 +98,10 @@ public class GroovityServerEndpoint extends Endpoint{
 	@Override
 	public void onClose(Session session, CloseReason reason) {
 		factory.socketClose();
+		HttpSession hs = (HttpSession) session.getUserProperties().get(HttpSession.class.getName());
+		if(hs!=null) {
+			sessionCloser.accept(hs, session);
+		}
 		if(socket!=null){
 			try{
 				socket.onClose(reason);
@@ -109,14 +127,52 @@ public class GroovityServerEndpoint extends Endpoint{
 	
 	public static class Configurator extends ServerEndpointConfig.Configurator{
 		final private GroovityScriptViewFactory factory;
-		
-		public Configurator(GroovityScriptViewFactory factory){
+		final ConcurrentHashMap<HttpSession, Set<Session>> sessionMappings = new ConcurrentHashMap<>();
+
+		private void mapSession(HttpSession httpSession, Session wsSession) {
+			Set<Session> sessions = sessionMappings.computeIfAbsent(httpSession, s->{
+				return ConcurrentHashMap.newKeySet();
+			});
+			sessions.add(wsSession);
+		}
+
+		private void closeSession(HttpSession httpSession, Session wsSession) {
+			Set<Session> sessions = sessionMappings.get(httpSession);
+			if(sessions!=null) {
+				sessions.remove(wsSession);
+			}
+		}
+
+		private void unmapSession(HttpSession httpSession) {
+			Set<Session> sessions = sessionMappings.remove(httpSession);
+			if (sessions != null) {
+				sessions.forEach(s -> {
+					if (s.isOpen()) {
+						try {
+							s.close();
+						} catch (Exception e) {}
+					}
+				});
+			}
+		}
+
+		public Configurator(GroovityScriptViewFactory factory, ServletContext context){
 			this.factory=factory;
+			context.addListener(new HttpSessionListener() {
+
+				@Override
+				public void sessionDestroyed(HttpSessionEvent event) {
+					unmapSession(event.getSession());
+				}
+
+				@Override
+				public void sessionCreated(HttpSessionEvent event) {}
+			});
 		}
 		
 		@SuppressWarnings({ "unchecked", "rawtypes" })
 		public GroovityServerEndpoint getEndpointInstance(Class endpointClass){
-			return new GroovityServerEndpoint(factory);
+			return new GroovityServerEndpoint(factory, this::mapSession, this::closeSession);
 		}
 
 		@Override
