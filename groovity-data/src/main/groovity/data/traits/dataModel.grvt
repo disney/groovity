@@ -23,6 +23,7 @@
  *******************************************************************************/
 
 import com.disney.groovity.data.StorePayload
+import com.disney.groovity.data.Referent
 import com.disney.groovity.data.AttachmentCollector
 
 /**
@@ -31,7 +32,7 @@ import com.disney.groovity.data.AttachmentCollector
  * Stored defines a store() and delete() method for data sources that support those operations. 
  */
  
-trait DataModel implements Model, Ingest{
+trait DataModel implements Model, Referent, Ingest{
 	Pointer pointer
 
 	@CompileStatic @SkipStatistics public String toString(){
