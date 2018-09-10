@@ -98,7 +98,9 @@ public class EsQueryString {
 				//flow through
 			case 1:
 				if(!searching && !counting && !lastPart.trim().isEmpty()) {
-					idValue = lastPart;
+					try {
+						idValue = URLDecoder.decode(lastPart, "UTF-8");
+					} catch (UnsupportedEncodingException e) {}
 				}
 				break;
 		}
