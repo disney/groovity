@@ -49,11 +49,13 @@ public class EsQueryString {
 	private String sort = null;
 	private boolean counting = false;
 	private boolean searching = false;
+	private String source = null;
 	
 	public EsQueryString() {
 		
 	}
 	
+	@SuppressWarnings("rawtypes")
 	public EsQueryString(String key, Map conf) {
 		if(conf != null) {
 			Object cds = conf.get("es.index");
@@ -70,12 +72,20 @@ public class EsQueryString {
 		if(key==null) {
 			key = "";
 		}
+		if(key.startsWith("{")) {
+			//json string maps to source parameter
+			source = key;
+			return;
+		}
 		String path = key;
 		String queryString = null;
 		int qm = key.indexOf("?");
 		if(qm>=0) {
 			path = key.substring(0,qm);
 			queryString = key.substring(qm+1);
+		}
+		if(path.startsWith("/")) {
+			path = path.substring(1);
 		}
 		String[] pathParts = path.split("/");
 		String lastPart = pathParts[pathParts.length-1];
@@ -141,6 +151,9 @@ public class EsQueryString {
 					}
 					else if(name.equals("q")) {
 						query = tval.toString();
+					}
+					else if(name.equals("source")) {
+						source = tval.toString();
 					}
 				}
 			}
@@ -221,6 +234,11 @@ public class EsQueryString {
 			}
 			if(size!=null) {
 				builder.append(d).append("size=").append(size);
+				d="&";
+			}
+			if(source!=null) {
+				builder.append(d).append("source=").append(encode(source));
+				d="&";
 			}
 		}
 		return builder.toString();
@@ -307,6 +325,14 @@ public class EsQueryString {
 
 	public void setSize(Integer size) {
 		this.size = size;
+	}
+
+	public String getSource() {
+		return source;
+	}
+
+	public void setSource(String source) {
+		this.source = source;
 	}
 	
 }

@@ -47,8 +47,8 @@ def get(factory,type,key){
 	factory(type,key)
 }
 
-def shoes = inventory.collect{  factory(factory('shoe').putAll(it).store().pointer) }
-
+def shoes = inventory.collect{  factory(factory('shoe').ingest(it).store().pointer) }
+try{
 def mensShoes = get(factory,'shoe','_search?q=mens:true&sort=size:desc')
 
 assert mensShoes.size() == 3
@@ -88,10 +88,24 @@ max = factory.dateRange('shoe',null,1499999999999,1510000000000){
 assert max == 1500000500000l
 assert counter.get() == 6
 
-shoes.each{
-	it.delete()
+def aq = write(to:'',value:[
+	query:[range:[size:[gt:10]]],
+	aggs:[eyelets:[terms:[field:'eyelets']]]
+])
+
+def agg = get(factory,'shoeQuery',aq)
+assert agg.hits.total==3
+assert agg.aggregations.eyelets.buckets.size() == 3
+agg.aggregations.eyelets.buckets.each{
+	assert it.doc_count == 1
 }
 
+}
+finally{
+	shoes.each{
+		it.delete()
+	}
+}
 mensShoes = get(factory,'shoe','_search?q=mens:true&sort=size:desc')
 
 assert mensShoes.size() == 0

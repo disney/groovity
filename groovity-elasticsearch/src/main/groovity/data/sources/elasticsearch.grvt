@@ -33,6 +33,21 @@ static Map conf=[
 	'es.httpDecorator':''
 ]
 
+/**
+ * The elasticsearch data source supports the following global configuration options:
+ *
+ * es.baseUrl = the base url of the elasticsearch cluster, including port and ending in '/'
+ * es.httpDecorator = the path of a script to run when constructing http calls, can be used to add auth/signatures
+ * http.timeout = how long to wait for elasticsearch requests to complete
+ *
+ * This data source supports the following configuration options on types that leverage it
+ *
+ * es.index = the name of the elasticsearch index in which is found
+ * es.date = Optional, the name of the date field to power date range search for watching
+ * es.dateFormat = customize the date format for the date field used in ranges
+ * 
+ */
+
 private static Closure _interceptor = null;
 
 @CompileStatic
@@ -51,8 +66,13 @@ public void call(Map<String,Object> map, Map typeConf){
 	map.each{ entry ->
 		EsQueryString eqs = new EsQueryString(entry.key,typeConf) 
 		String restQuery = eqs.toRestQuery()
-		if(eqs.isSearching()){
-			restQuery += "&_source=false"
+		if(eqs.isSearching() && !eqs.source){
+			if(restQuery.contains('?')){
+				restQuery += "&_source=false"
+			}
+			else{
+				restQuery += "?_source=false"
+			}
 		}
 		String esUrl = "${conf.get('es.baseUrl')}${restQuery}"
 		entry.value = http(async:true,url:esUrl,timeout:conf.get('http.timeout')){
@@ -71,6 +91,10 @@ public void call(Map<String,Object> map, Map typeConf){
 				switch(httpResponse.statusLine.statusCode){
 					case 200:
 						validate(esMap)
+						if(eqs.source!=null){
+							//for raw queries return full results
+							return esMap
+						}
 						//log(info:"Got results ${esMap}")
 						if(eqs.isCounting()){
 							return esMap.get('count')
@@ -78,7 +102,7 @@ public void call(Map<String,Object> map, Map typeConf){
 						if(eqs.isSearching()){
 							Map hitsMap = (Map) esMap.get('hits')
 							if(hitsMap==null){
-								return
+								return esMap
 							}
 							List<Map> hitList = (List<Map>) hitsMap.get('hits')
 							return hitList.collect{ 

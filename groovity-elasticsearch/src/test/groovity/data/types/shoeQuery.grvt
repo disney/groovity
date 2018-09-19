@@ -26,29 +26,12 @@ static conf=[
 	ttl:60,
 	refresh:45,
 	'es.index':'unit_test_shoe_inventory',
-	'es.type':'shoe',
-	'es.date':'modified'
+	'es.type':'shoe'
 ]
 
-public class Shoe implements DataModel, Stored, IsElasticDoc{
-	boolean mens
-	boolean womens
-	boolean kids
-	int eyelets
-	float size
-	Date modified
-	
-	def setModified(Date d){
-		this.modified = d
-	}
-	
-	boolean ingest(String key, Object val){
-		if(key=='modified' && val instanceof Number){
-			val = new Date(val.toLong())
-		}
-		IsElasticDoc.super.ingest(key,val)
-	}
-	
+class ShoeQuery implements DataModel{
+	Map hits
+	Map aggregations
 }
 
-new Shoe()
+new ShoeQuery()

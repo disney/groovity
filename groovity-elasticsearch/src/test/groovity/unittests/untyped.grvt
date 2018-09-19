@@ -21,9 +21,54 @@
  * KIND, either express or implied. See the Apache License for the specific
  * language governing permissions and limitations under the Apache License.
  *******************************************************************************/
+ import org.apache.http.HttpResponse
+ 
 load '/data/factory'
 
-//http(method:'DELETE',url:'http://localhost:9200/unit-test-shapes'){handler{}}
+static Map conf=[
+	'es.baseUrl':'http://localhost:9200/'
+]
+
+http(method:'DELETE',url:"${conf['es.baseUrl']}unit-test-shapes"){handler{ resp ->
+	HttpResponse httpResponse = (HttpResponse) resp
+	Map esMap = (Map) parse(value:resp)
+	def elasticsearch = load('/data/sources/elasticsearch')
+	elasticsearch.intercept({
+		[
+			method: 'DELETE',
+			url: "unit-test-shapes",
+			status: httpResponse.statusLine.statusCode,
+			response: esMap
+		]
+	})
+}}
+
+http(method:'PUT',url:"${conf['es.baseUrl']}unit-test-shapes/",data: [
+	mappings: [
+		shape: [
+			properties:[
+				color: [type: "keyword"],
+				shape: [type: "keyword"],
+				width: [type: "long"],
+			]
+		]
+	]
+]){
+	header(name:'Content-Type',value:'application/json')
+	handler{ resp ->
+		HttpResponse httpResponse = (HttpResponse) resp
+		def elasticsearch = load('/data/sources/elasticsearch')
+		Map esMap = (Map) parse(value:resp)
+		elasticsearch.intercept({
+			[
+				method: 'PUT',
+				url: "unit-test-shapes/",
+				status: httpResponse.statusLine.statusCode,
+				response: esMap
+			]
+		})
+	}
+}
 
 def get(factory,type,key){
 	factory.invalidate(type,key)
@@ -48,7 +93,7 @@ def dataObjects = dataset.collect{
 	factory.invalidate(obj.getPointer())
 	factory(obj.getPointer())
 }
-
+try{
 def wideOnes = get(factory,'elasticsearch','unit-test-shapes/shape/_search?q=width:>10')
 
 assert wideOnes.size() == 4
@@ -70,8 +115,39 @@ dataObjects.each{
 def approved = get(factory,'elasticsearch','unit-test-shapes/shape/_count?q=stamp.type:approval')
 assert approved == 6
 
-dataObjects.each{
-	it.delete()
+def query = write(to:'',value:[
+	size:0,
+	aggs:[
+		color:[
+			terms: [ field: 'color' ]
+		],
+		shape:[
+			terms: [ field: 'shape' ]
+		],
+		width:[
+			histogram:[
+				field: 'width',
+				interval: 1
+			]
+		]
+	]
+])
+def url = uri(base:'unit-test-shapes/shape/_search'){ param(name:'source',value:query) }
+
+def aggs = get(factory,'elasticsearch',url.toString())
+assert aggs.aggregations.shape.buckets.find{ it.key=='circle' }.doc_count == 3
+assert aggs.aggregations.shape.buckets.find{ it.key=='square' }.doc_count == 2
+assert aggs.aggregations.shape.buckets.find{ it.key=='triangle' }.doc_count == 1
+['green','purple','red'].each{ color->
+	assert aggs.aggregations.color.buckets.find{ it.key == color }.doc_count == 2
+}
+assert aggs.aggregations.width.buckets.max{ it.key }.key == 17
+assert aggs.aggregations.width.buckets.min{ it.key }.key == 4
+}
+finally{
+	dataObjects.each{
+		it.delete()
+	}
 }
 
 assert get(factory,'elasticsearch','unit-test-shapes/shape/_count?q=stamp.type:approval') == 0
