@@ -108,7 +108,6 @@ public class Await implements Taggable {
 		final ScriptHelper scriptHelper = getScriptHelper(body);
 		final Binding binding = scriptHelper.getBinding();
 		final Map variables = binding.getVariables();
-		final AwaitContext awaitContext = AwaitContext.create(variables);
 		DeadlockFreeExecutor createdThreadPool = null;
 		DeadlockFreeExecutor oldThreadPool = null;
 		if(!variables.containsKey(Async.EXECUTOR_BINDING)){
@@ -119,6 +118,15 @@ public class Await implements Taggable {
 			}
 		}
 		final Writer origOut = (Writer) variables.get(OUT);
+		StringBuilder label = new StringBuilder();
+		Object o = GroovityStatistics.currentStackKey();
+		if(o!=null) {
+			label.append(o.toString());
+		}
+		label.append("[await]");
+		final String el = label.toString();
+		GroovityStatistics.startExecution(el);
+		final AwaitContext awaitContext = AwaitContext.create(variables);
 		try{
 			Collection<Object> resultsList ;
 			final long timeoutTime = timeoutSeconds==null?-1:System.currentTimeMillis()+(timeoutSeconds*1000);
@@ -202,6 +210,7 @@ public class Await implements Taggable {
 			return resultsList;
 		}
 		finally{
+			GroovityStatistics.endExecution();
 			awaitContext.close(variables);
 			if(origOut!=null){
 				variables.put(OUT,origOut);

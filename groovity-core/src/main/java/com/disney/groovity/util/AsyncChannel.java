@@ -24,6 +24,9 @@
 package com.disney.groovity.util;
 
 import com.disney.groovity.GroovityConstants;
+import com.disney.groovity.stats.GroovityStatistics;
+import com.disney.groovity.stats.GroovityStatistics.Execution;
+
 import groovy.lang.Binding;
 import groovy.lang.Closure;
 
@@ -69,6 +72,8 @@ public class AsyncChannel implements Closeable, GroovityConstants{
 	final AtomicBoolean dirty = new AtomicBoolean(false);
 	final ReentrantLock dirtyLock = new ReentrantLock();
 	final DeadlockFreeExecutor asyncChannelExecutor;
+	final String statsLabel;
+	final Execution parentStack;
 	AsyncChannelObserver observer;
 	public final AsyncChannelManager asyncChannelManager;
 	public static final AsyncChannelAnonymousManager asyncChannelAnonymousManager =
@@ -110,10 +115,12 @@ public class AsyncChannel implements Closeable, GroovityConstants{
 			Binding oldThreadBinding = ScriptHelper.THREAD_BINDING.get();
 			ScriptHelper.THREAD_BINDING.set(binding);
 			try {
+				final Execution restoreStack = parentStack !=null ? GroovityStatistics.registerStack(parentStack) : null;
 				Object oldIt = variables.get("it");
 				try{
 					AsyncMessage message = null;
 					while(!halted.get() && (message = poll())!=null){
+						GroovityStatistics.startExecution(statsLabel);
 						try{
 							long startTime = System.currentTimeMillis();
 							variables.put("it",message.payload);
@@ -126,6 +133,7 @@ public class AsyncChannel implements Closeable, GroovityConstants{
 							}
 						}
 						finally{
+							GroovityStatistics.endExecution();
 							message.consumed();
 						}
 					}
@@ -136,6 +144,9 @@ public class AsyncChannel implements Closeable, GroovityConstants{
 				}
 				finally{
 					variables.put("it",oldIt);
+					if(parentStack!=null){
+						GroovityStatistics.registerStack(restoreStack);
+					}
 				}
 				if(closed.get()){
 					if(closer!=null){
@@ -197,7 +208,7 @@ public class AsyncChannel implements Closeable, GroovityConstants{
 	}
 	
 	@SuppressWarnings("rawtypes")
-	private AsyncChannel(DeadlockFreeExecutor asyncChannelExecutor, Object key, int queueSize, Policy policy, Closure handler, Closure closer, Object owner, Binding binding){
+	private AsyncChannel(DeadlockFreeExecutor asyncChannelExecutor, Object key, int queueSize, Policy policy, Closure handler, Closure closer, Object owner, Binding binding, Execution parentStack){
 		this.asyncChannelExecutor = asyncChannelExecutor;
 		this.messageQueue = new LinkedBlockingQueue<>(queueSize>0?queueSize:Integer.MAX_VALUE);
 		this.policy=policy;
@@ -214,6 +225,19 @@ public class AsyncChannel implements Closeable, GroovityConstants{
 		else{
 			this.asyncChannelManager = null;
 		}
+		this.parentStack=parentStack;
+		StringBuilder label = new StringBuilder();
+		Object o = GroovityStatistics.currentStackKey();
+		if(o!=null) {
+			label.append(o.toString());
+		}
+		label.append("[accept");
+		if(key!=null) {
+			label.append(" ");
+			label.append(key.toString());
+		}
+		label.append("]");
+		this.statsLabel=label.toString();
 	}
 
 	public Object getKey(){
@@ -221,9 +245,8 @@ public class AsyncChannel implements Closeable, GroovityConstants{
 	}
 	
 	@SuppressWarnings("rawtypes")
-	public static AsyncChannel open(DeadlockFreeExecutor asyncChannelExecutor, Object key, int queueSize, Policy policy, Closure handler, Closure closer, Object owner, Binding binding){
-
-		AsyncChannel channel = new AsyncChannel(asyncChannelExecutor, key, queueSize, policy, handler, closer, owner, binding);
+	public static AsyncChannel open(DeadlockFreeExecutor asyncChannelExecutor, Object key, int queueSize, Policy policy, Closure handler, Closure closer, Object owner, Binding binding, Execution parentStack){
+		AsyncChannel channel = new AsyncChannel(asyncChannelExecutor, key, queueSize, policy, handler, closer, owner, binding,parentStack);
 		if(key!=null){
 			Collection<AsyncChannel> channels = ASYNC_CHANNEL_ROUTING.get(key);
 			if(channels==null) {

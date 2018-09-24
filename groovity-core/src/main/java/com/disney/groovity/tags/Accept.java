@@ -32,6 +32,7 @@ import com.disney.groovity.GroovityConstants;
 import com.disney.groovity.Taggable;
 import com.disney.groovity.doc.Attr;
 import com.disney.groovity.doc.Tag;
+import com.disney.groovity.stats.GroovityStatistics.Execution;
 import com.disney.groovity.tags.Await.AwaitContext;
 import com.disney.groovity.util.AsyncChannel;
 import com.disney.groovity.util.DeadlockFreeExecutor;
@@ -182,7 +183,8 @@ public class Accept implements Taggable, GroovityConstants {
 				}
 			}
 		}
-		AsyncChannel asyncChan = AsyncChannel.open(sharedThreadPool, channel, qSize, policy, body, completed, owner, asyncBinding);
+		final Execution parentStack = asyncContext!=null?asyncContext.getWaitingExecution():null;
+		AsyncChannel asyncChan = AsyncChannel.open(sharedThreadPool, channel, qSize, policy, body, completed, owner, asyncBinding, parentStack);
 		String var = resolve(attributes, "var", String.class);
 		if(var!=null && var.length()>0){
 			bind(body,var,asyncChan);

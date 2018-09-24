@@ -167,6 +167,15 @@ public class Async implements Taggable, GroovityConstants {
 			asyncContext.signalAsync(variables,out);
 		}
 		final Execution parentStack = asyncContext!=null?asyncContext.getWaitingExecution():null;
+		final String el;
+		//let's create a wrapper execution for the async tag so we don't lose visibility
+		StringBuilder label = new StringBuilder();
+		Object o = GroovityStatistics.currentStackKey();
+		if(o!=null) {
+			label.append(o.toString());
+		}
+		label.append("[async]");
+		el = label.toString();
 		String scriptPath = scriptHelper.getClassLoader().getScriptName();
 		final long timeoutTime = timeoutSeconds==null?-1:System.currentTimeMillis()+(timeoutSeconds*1000);
 		final Callable<Object> bodyRunner = new Callable<Object>() {
@@ -176,6 +185,7 @@ public class Async implements Taggable, GroovityConstants {
 				Binding oldThreadBinding = ScriptHelper.THREAD_BINDING.get();
 				ScriptHelper.THREAD_BINDING.set(asyncBinding);
 				final Execution restoreStack = parentStack !=null ? GroovityStatistics.registerStack(parentStack) : null;
+				GroovityStatistics.startExecution(el);
 				try{
 					Closure asyncBody;
 					if(body.getThisObject() instanceof Class){
@@ -218,6 +228,7 @@ public class Async implements Taggable, GroovityConstants {
 					else{
 						ScriptHelper.THREAD_BINDING.set(oldThreadBinding);
 					}
+					GroovityStatistics.endExecution();
 					if(parentStack!=null){
 						GroovityStatistics.registerStack(restoreStack);
 					}

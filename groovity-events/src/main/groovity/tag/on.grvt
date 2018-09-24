@@ -58,6 +58,7 @@
 	]
 )
 class On{
+	@SkipStatistics
 	def tag(Map atts, Closure body){
 		def event = resolve(atts,'event',String.class)
 		assert event
