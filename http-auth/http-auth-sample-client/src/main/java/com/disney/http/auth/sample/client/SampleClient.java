@@ -56,47 +56,6 @@ public class SampleClient implements AuthConstants {
     	try{
         HttpClientBuilder clientBuilder = HttpClients.custom();
 
-        ///// Ways to get the private key data (RSA):
-
-        /*
-         * Import KeyStore from file/url/etc.
-         *   - assumes file has password but alias does not
-         *   - must set loader password and type
-         */
-        Map<String,Object> config = new HashMap<String,Object>();
-    	config.put(KeyStoreValueHandler.KEYSTORE_PASSWORD, "filePassword");
-    	config.put(KeyStoreValueHandler.KEYSTORE_TYPE, "JCEKS");
-        URIParcel<KeyStore> ks = new URIParcel<KeyStore>(KeyStore.class,new File("client_keystore.jceks").toURI(),config);
-        KeyChain chain = new KeyStoreKeyChainImpl(ks,"passwordForPrivateKey".toCharArray());
-        KeyChainKeyLoader loader = new KeyChainKeyLoader(chain);
-        loader.setAlias("sample_webapp");
-   
-        /*
-         * Import PrivateKey from PKCS8 pem file
-         *   - assumes no password protection or encryption
-         */
-       // ExternalKeyLoader keyLoader = new ExternalKeyLoader("/client_key.pem", localContext);
-        //keyLoader.setAlgorithm("RSA");
-        URIParcel<PrivateKey> keyLoader = new URIParcel<PrivateKey>(PrivateKey.class,new java.net.URI("file:client_key.pem"));
-
-        /*
-         * Create own key and to set that in the signer. Can write key to file as desired
-         *
-         * Here, generate a KeyPair
-         *   - only RSA
-         *   - can set bit size to 1024 or 2048
-         *   - must save the public key for verification use
-         */
-        KeyPair pair = KeyUtils.generateKeyPair(2048);
-//        // Write privateKey to a file (PKCS8, uses base64encoding)
-//        KeyUtils.writePrivateKeyToFile(pair,"/Users/kobar004/misc/auth-backup/newKey-priv.pem");
-
-        KeyObjectKeyLoader privateKeyLoader = new KeyObjectKeyLoader(pair.getPrivate());
-
-//        // write public KeyStore to file.
-//        String publicKeyStoreLocation = "/Users/kobar004/misc/auth-backup/newKey-pub.store";
-//        KeyUtils.writePublicKeyStoreToFile(pair.getPublic(), publicKeyStoreLocation, "RSA", "rachel");
-
         // Ways to set the symmetric key data (HMAC):
 
         /*

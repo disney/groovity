@@ -25,6 +25,7 @@ package com.disney.http.auth.client;
 
 import com.disney.http.auth.AuthorizationRequest;
 import org.apache.http.Header;
+import org.apache.http.HttpHost;
 import org.apache.http.HttpRequest;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.client.utils.URIUtils;
@@ -48,7 +49,8 @@ public class ClientAuthorizationRequest implements AuthorizationRequest {
 		this.httpRequest = httpRequest;
 		if (httpRequest instanceof HttpUriRequest) {
 			URI uri = ((HttpUriRequest) httpRequest).getURI();
-			this.host = URIUtils.extractHost(uri).toHostString();
+			HttpHost httpHost = URIUtils.extractHost(uri);
+			this.host = httpHost == null ? null : httpHost.toHostString();
 			this.uri = uri.getPath() + (uri.getRawQuery() == null ? "" : "?".concat(uri.getRawQuery()));
 		} else {
 			this.uri = null;

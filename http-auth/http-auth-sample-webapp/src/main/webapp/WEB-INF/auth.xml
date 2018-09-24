@@ -27,13 +27,4 @@
 		</keys>
 		<headers>(request-target) host date</headers>
 	</signature>
-    <!--<signature>
-        <realm>RSA User</realm>
-        <keystore>
-            <location>file:/Users/kobar004/server_keystore.jceks</location>
-            <type>JCEKS</type>
-            <ttl>1000</ttl>
-            <password>publicPassword</password>
-        </keystore>
-    </signature>-->
 </auth>
