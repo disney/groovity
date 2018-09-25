@@ -21,6 +21,8 @@
  * KIND, either express or implied. See the Apache License for the specific
  * language governing permissions and limitations under the Apache License.
  *******************************************************************************/
+import org.apache.http.util.EntityUtils
+
 static conf=[
 	'groovity.port':int.class
 ]
@@ -34,7 +36,7 @@ http(
 		assert resp.statusLine.statusCode == 200
 		assert resp.getFirstHeader('Content-Type').value.split(';')[0] == "text/plain"
 		assert resp.getFirstHeader('Content-Length') == null
-		assert resp.entity.content.text.length() == 300000
+		assert EntityUtils.toString(resp.entity).length() == 300000
 	}
 }
 
@@ -44,7 +46,7 @@ http(
 	handler{ resp ->
 		assert resp.statusLine.statusCode == 404
 		assert resp.getFirstHeader('Content-Type').value.split(';')[0] == "text/html"
-		assert resp.entity.content.text == 'TruncatedErrorPage'
+		assert EntityUtils.toString(resp.entity) == 'TruncatedErrorPage'
 	}
 }
 
@@ -55,7 +57,7 @@ http(
 		assert resp.statusLine.statusCode == 200
 		assert resp.getFirstHeader('Content-Type').value.split(';')[0] == "text/plain"
 		assert resp.getFirstHeader('Content-Length').value == '400000'
-		assert resp.entity.content.text.length() == 300000
+		assert EntityUtils.toString(resp.entity).length() == 300000
 	}
 }
 
@@ -76,7 +78,7 @@ http(
 	handler{ resp ->
 		assert resp.statusLine.statusCode == 404
 		assert resp.getFirstHeader('Content-Type').value.split(';')[0] == "text/html"
-		assert resp.entity.content.text == 'TruncatedErrorPage'
+		assert EntityUtils.toString(resp.entity) == 'TruncatedErrorPage'
 	}
 }
 

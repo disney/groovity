@@ -16,7 +16,7 @@
 		"registry": "https://registry.npmjs.org"
 	},
 	"scripts": {
-		"prepare": "./node_modules/babel-cli/bin/babel.js src --out-dir lib --presets es2015,minify --plugins transform-es2015-modules-umd"
+		"prepare": "babel src --out-dir lib --presets es2015,minify --plugins transform-es2015-modules-umd"
 	},
 	"devDependencies": {
 		"babel-cli": "^6.1.2",
