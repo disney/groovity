@@ -32,6 +32,7 @@ import groovy.io.FileType
  * file.basedir = the directory in which type data files are stored
  * file.extension = the file extension, if any, used for type data files.
  * file.format = customize the serialization format; defaults to json, can be changed to xml
+ * file.encoding = the character encoding to use with files, default to UTF-8
  * 
  * The path of a data file in the filesystem will be ${file.basedir}/${id}.${file.extension}
  */
@@ -43,7 +44,9 @@ public void call(Map<String,Object> map, Map typeConf){
 	map.each{ entry ->
 		File file = getFile(entry.key, typeConf)
 		if(file.exists()){
-			entry.value  = parse(value:file, format: format)
+			file.withReader(getEncoding(typeConf)){ rdr->
+				entry.value  = parse(value: rdr, format: format)
+			}
 			def attFolder = getDir("${entry.key}_",typeConf)
 			if(attFolder.isDirectory()){
 				def atts = []
@@ -57,6 +60,14 @@ public void call(Map<String,Object> map, Map typeConf){
 			}
 		}
 	}
+}
+
+@CompileStatic
+private String getEncoding(Map typeConf){
+	if(typeConf.containsKey('file.encoding')){
+		return typeConf.get('file.encoding')
+	}
+	'UTF-8'
 }
 
 @CompileStatic
@@ -74,33 +85,39 @@ public String store(String id, StorePayload payload, Map typeConf){
 	if(!file.parentFile.exists()){
 		file.parentFile.mkdirs()
 	}
+	File temp = File.createTempFile('data', null, file.parentFile)
 	def format = typeConf['file.format'] ?: 'json'
-	OutputStreamWriter osm = new OutputStreamWriter(new FileOutputStream(file))
-	try{
+	temp.withWriter(getEncoding(typeConf)){ osm ->
 		write(value:data, to:osm, format: format)
 	}
-	finally{
-		osm.close()
-	}
+	def copyFiles = [(temp): file]
 	File atDir = getDir("${id}_",typeConf)
-	if(atDir.isDirectory()){
-		List<String> dels = payload.attachmentsToDelete
-		dels.each{
-			new File(atDir,it).delete()
+	File tempDir = null
+	if(atts){
+		tempDir = new File(temp.parentFile,"${temp.name}_")
+		tempDir.mkdirs()
+		atts.each{ att->
+			File atFile = new File(tempDir, att.name)
+			atFile.createNewFile()
+			atFile.withOutputStream{ out ->
+				out << att.inputStream
+			}
+			copyFiles.put(atFile,new File(atDir, att.name))
 		}
-		if(!atts){
-			atDir.delete()
-		}
-	}
-	else if(atts){
 		atDir.mkdirs()
 	}
-	atts.each{ att->
-		File atFile = new File(atDir, att.name)
-		atFile.createNewFile()
-		atFile.withOutputStream{ out ->
-			out << att.inputStream
-		}
+	copyFiles.each{ from, to->
+		from.renameTo(to)
+	}
+	if(tempDir!=null){
+		tempDir.delete()
+	}
+	List<String> dels = payload.attachmentsToDelete
+	dels.each{
+		new File(atDir,it).delete()
+	}
+	if(!atts){
+		atDir.delete()
 	}
 	id
 }
