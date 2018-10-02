@@ -25,6 +25,8 @@
 import com.disney.groovity.data.StorePayload
 import com.disney.groovity.data.Attacher
 import groovy.io.FileType
+import java.nio.file.Files
+import static java.nio.file.StandardCopyOption.ATOMIC_MOVE
 
 /**
  * The file data source supports the following configuration options on types that leverage it
@@ -107,7 +109,7 @@ public String store(String id, StorePayload payload, Map typeConf){
 		atDir.mkdirs()
 	}
 	copyFiles.each{ from, to->
-		from.renameTo(to)
+		Files.move(from.toPath(), to.toPath(), ATOMIC_MOVE)
 	}
 	if(tempDir!=null){
 		tempDir.delete()
