@@ -74,6 +74,7 @@
 		<module>groovity-events</module>
 		<module>groovity-crypto</module>
 		<module>groovity-data</module>
+		<module>groovity-data-service</module>
 		<module>groovity-sql</module>
 		<module>groovity-standalone</module>
 		<module>groovity-sample-webapp</module>

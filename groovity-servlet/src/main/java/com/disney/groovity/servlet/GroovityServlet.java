@@ -106,7 +106,7 @@ import java.util.logging.Logger;
  * @author Alex Vigdor
  */
 @WebServlet(name = "groovity", urlPatterns = { "/" }, loadOnStartup = 0)
-@MultipartConfig
+@MultipartConfig(fileSizeThreshold=524288)
 public class GroovityServlet extends HttpServlet implements Servlet {
 	private static final long serialVersionUID = -385204301640186889L;
 	public static final String ASYNC_THREADS_PARAM = "asyncThreads";

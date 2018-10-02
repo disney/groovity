@@ -26,11 +26,11 @@ package com.disney.groovity.tags;
 import groovy.lang.Closure;
 import groovy.lang.Writable;
 
-import java.io.CharArrayWriter;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.Charset;
 import java.security.InvalidKeyException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -45,6 +45,7 @@ import com.disney.groovity.GroovityConstants;
 import com.disney.groovity.Taggable;
 import com.disney.groovity.doc.Attr;
 import com.disney.groovity.doc.Tag;
+import com.disney.groovity.util.HashWriter;
 /**
  * Generate the hash of a value (message)
  * <p>
@@ -141,16 +142,18 @@ public class Hash implements Taggable{
 				}
 			}
 		}
+		MessageDigest md = MessageDigest.getInstance(useAlgorithm);
+		byte[] hash;
 		Object var = attributes.get(VAR);
 		Object value = resolve(attributes,VALUE);
 		if(value==null){
 			//grab value from body if it didn't come from the attribute
 			Object oldOut = get(body,OUT);
-			CharArrayWriter writer = new CharArrayWriter();
+			HashWriter writer = new HashWriter(md, Charset.forName("UTF-8").newEncoder());
 			bind(body,OUT, writer);
 			try{
 				Object rval = body.call();
-				if(writer.size()==0) {
+				if(!writer.isUsed()) {
 					if(rval instanceof Writable){
 						((Writable)rval).writeTo(writer);
 					}
@@ -161,35 +164,37 @@ public class Hash implements Taggable{
 			}
 			finally{
 				bind(body,OUT, oldOut);
+				writer.close();
 			}
-			value = writer.toString();
+			hash = writer.getHash();
 		}
-		MessageDigest md = MessageDigest.getInstance(useAlgorithm);
-		if(value instanceof byte[]){
-			md.update((byte[])value);
-		}
-		else if(value instanceof InputStream) {
-			digestStream(md, (InputStream) value);
-		}
-		else if(value instanceof File) {
-			try(FileInputStream fis = new FileInputStream((File)value)){
-				digestStream(md,fis);
+		else {
+			if(value instanceof byte[]){
+				md.update((byte[])value);
 			}
-		}
-		else if(value instanceof HttpEntity) {
-			try(InputStream is = ((HttpEntity) value).getContent()){
-				digestStream(md, is);
+			else if(value instanceof InputStream) {
+				digestStream(md, (InputStream) value);
 			}
-		}
-		else if(value instanceof DataSource) {
-			try(InputStream is = ((DataSource)value).getInputStream()){
-				digestStream(md, is);
+			else if(value instanceof File) {
+				try(FileInputStream fis = new FileInputStream((File)value)){
+					digestStream(md,fis);
+				}
 			}
+			else if(value instanceof HttpEntity) {
+				try(InputStream is = ((HttpEntity) value).getContent()){
+					digestStream(md, is);
+				}
+			}
+			else if(value instanceof DataSource) {
+				try(InputStream is = ((DataSource)value).getInputStream()){
+					digestStream(md, is);
+				}
+			}
+			else{
+				md.update(value.toString().getBytes("UTF-8"));
+			}
+			hash = md.digest();
 		}
-		else{
-			md.update(value.toString().getBytes("UTF-8"));
-		}
-		byte[] hash = md.digest();
 		if(useEncoding.equals("none")){
 			if(var!=null){
 				bind(body,var.toString(), hash);

@@ -181,7 +181,7 @@ class SqlTable{
 					rowId = row.id
 				}
 				def href = uri(base:urlBase,{ param(name:"${id}_id",value:rowId,replace:true) });
-				stream <~ <a href="${href}">${cellLabel(row[col])}</a> ~>
+				<~ <a href="${href}">${cellLabel(row[col])}</a> ~>
 			}
 		}
 		def filter = null;
@@ -264,7 +264,7 @@ class SqlTable{
 			numCols++;
 		}
 		
-		stream <~
+		write{<~
 			<a name="${id}_sqlPager"></a>
 			<div class="title">
 			${title}
@@ -365,6 +365,6 @@ class SqlTable{
 				</g:else>
 				
 			</table>
-		~>
+		~>}
 	}
 }

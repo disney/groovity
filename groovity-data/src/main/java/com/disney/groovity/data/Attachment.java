@@ -66,7 +66,7 @@ public class Attachment implements Model, DataSource {
 
 	public Attachment() {}
 	
-	public Attachment(Attachment copyFrom) {
+	public Attachment copyMeta(Attachment copyFrom) {
 		this.name = copyFrom.getName();
 		this.contentType = copyFrom.getContentType();
 		this.length = copyFrom.getLength();
@@ -75,6 +75,7 @@ public class Attachment implements Model, DataSource {
 		if(copyFrom.attributes!=null) {
 			this.attributes = new LinkedHashMap<>(copyFrom.attributes);
 		}
+		return this;
 	}
 
 	@Override
@@ -309,7 +310,7 @@ public class Attachment implements Model, DataSource {
 			setBytes(bytes);
 		}
 		public Bytes(Attachment copyFrom) throws Exception {
-			super(copyFrom);
+			copyMeta(copyFrom);
 			ByteArrayOutputStream baos = new ByteArrayOutputStream();
 			if(copyFrom.length!=null && copyFrom.length>0) {
 				InputStream in = copyFrom.getInputStream();

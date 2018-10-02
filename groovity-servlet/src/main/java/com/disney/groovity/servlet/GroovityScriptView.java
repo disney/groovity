@@ -754,7 +754,7 @@ public class GroovityScriptView implements AuthConstants{
 			catch(Throwable e){
 				GroovityError groovyError = getGroovyError(request);
 				groovyError.setCause(e);
-				groovyError.setMessage(e.getMessage());
+				groovyError.setMessage(GroovityError.describe(e));
 				groovyError.setStatus(500);
 				groovyError.setReason(EnglishReasonPhraseCatalog.INSTANCE.getReason(500, response.getLocale()));
 				boolean handled = false;

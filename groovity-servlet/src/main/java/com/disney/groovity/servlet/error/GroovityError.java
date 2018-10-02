@@ -23,6 +23,7 @@
  *******************************************************************************/
 package com.disney.groovity.servlet.error;
 
+import java.util.HashSet;
 import java.util.logging.Logger;
 
 import com.disney.groovity.model.ModelSkip;
@@ -96,5 +97,29 @@ public class GroovityError {
 	}
 	public void setLogger(Logger logger) {
 		this.logger = logger;
+	}
+
+	public static String describe(Throwable th) {
+		StringBuilder builder = new StringBuilder();
+		HashSet<String> messages = new HashSet<>();
+		Throwable cause = th;
+		String prefix="";
+		while(cause!=null) {
+			String name = cause.getClass().getSimpleName();
+			if(messages.add(name)) {
+				builder.append(prefix).append(name);
+				prefix = ": ";
+			}
+			String msg = cause.getMessage();
+			if(msg!=null && messages.add(msg)) {
+				builder.append(prefix).append(msg);
+				prefix = ": ";
+			}
+			if(cause == cause.getCause()) {
+				break;
+			}
+			cause = cause.getCause();
+		}
+		return builder.toString();
 	}
 }

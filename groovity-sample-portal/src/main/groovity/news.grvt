@@ -58,7 +58,7 @@ class NewsFeedPortlet{
 								] }
 			}
 		})
-		stream <~
+		write{<~
 			<g:portlet title="${title}" wide="${wide}" link="${link}">
 				<g:each var="item" in="${feed}">
 					<div style="margin:8px">
@@ -74,7 +74,7 @@ class NewsFeedPortlet{
 					</div>
 				</g:each>
 			</g:portlet>
-		~>
+		~>}
 	}
 }
 

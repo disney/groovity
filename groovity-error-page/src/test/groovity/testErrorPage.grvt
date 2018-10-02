@@ -32,7 +32,7 @@ http(url:"${host}/sampleException"){
 		assert httpResponse.statusLine.statusCode == 500
 		assert httpResponse.getFirstHeader('Content-Type').value == 'application/json;charset=utf-8'
 		def body = parse(value:httpResponse)
-		assert body.message == 'Whoops! åaÅåéá'
+		assert body.message == 'Exception: Whoops! åaÅåéá'
 	}
 }
 
@@ -43,7 +43,7 @@ http(url:"${host}/sampleException"){
 		assert httpResponse.statusLine.statusCode == 500
 		assert httpResponse.getFirstHeader('Content-Type').value == 'application/xml; charset=Windows-1252'
 		def body = parse(value:httpResponse)
-		assert body.message == 'Whoops! åaÅåéá'
+		assert body.message == 'Exception: Whoops! åaÅåéá'
 	}
 }
 

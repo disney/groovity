@@ -22,13 +22,17 @@
  * language governing permissions and limitations under the Apache License.
  *******************************************************************************/
 
+def makeHex(key,value){
+	hmac(key: key, encoding: 'hex'){ value }
+}
+
 <~<g:set var="secret" value="banana123" />
 <g:set var="message" value="This message can be verified" />
 <g:write><g:hmac key="${secret}" value="${message}" /></g:write>
 <g:write value="|"/>
 <g:write><g:hmac key="${secret}" value="${new ByteArrayInputStream(message.bytes)}" algorithm="md5" /></g:write>
 <g:write value="|"/>
-<g:write><g:hmac key="${secret}" value="${message}" encoding="hex" /></g:write>
+<g:write>${makeHex(secret, message)}</g:write>
 <g:write value="|"/>
 <g:hmac var="signature" key="${secret}" value="${message}" algorithm="sha1" encoding="none"/>
 <g:write value="${javax.xml.bind.DatatypeConverter.printByte(signature[0])}"/>

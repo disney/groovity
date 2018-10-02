@@ -53,11 +53,11 @@ class Events{
 		if(!varName){
 			varName = 'socket'
 		}
-		stream <~
+		write{<~
 		<script type="text/javascript" src = "/static/groovity/events/groovity-events.js"> </script>
 		<script type="text/javascript"> 
 			window.${varName} = new groovityEvents.EventSocket('${url}')
 		</script>
-		~>
+		~>}
 	}
 }

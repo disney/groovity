@@ -23,7 +23,8 @@
  *******************************************************************************/
 package com.disney.groovity.data;
 
-import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import com.disney.groovity.Groovity;
 import com.disney.groovity.GroovityObserver;
@@ -36,7 +37,7 @@ import groovy.lang.Script;
  *
  */
 public class DataTypeRegistry implements GroovityObserver {
-	ConcurrentSkipListSet<String> knownDataTypes = new ConcurrentSkipListSet<>();
+	Set<String> knownDataTypes = ConcurrentHashMap.newKeySet();
 	
 	@Override
 	public void scriptStart(Groovity groovity, String scriptPath, Class<Script> scriptClass) {

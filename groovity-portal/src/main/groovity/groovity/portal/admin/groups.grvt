@@ -93,10 +93,10 @@ if(group_id){
 	selectedGroup = factory('group',"${group_id}");
 }
 addMemberFormat =  { row, col -> 
-	stream <~ <a href="#" onclick="document.forms['addMemberForm'].addMember.value='${row.id}'; document.forms['addMemberForm'].submit();">${row[col]}</a> ~>
+	<~ <a href="#" onclick="document.forms['addMemberForm'].addMember.value='${row.id}'; document.forms['addMemberForm'].submit();">${row[col]}</a> ~>
 };
 addLeaderFormat =  { row, col ->
-	stream <~ <a href="#" onclick="document.forms['addLeaderForm'].addLeader.value='${row.id}'; document.forms['addLeaderForm'].submit();">${row[col]}</a> ~>
+	<~ <a href="#" onclick="document.forms['addLeaderForm'].addLeader.value='${row.id}'; document.forms['addLeaderForm'].submit();">${row[col]}</a> ~>
 };
 
 <~

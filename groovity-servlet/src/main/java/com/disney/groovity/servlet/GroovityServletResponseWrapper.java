@@ -32,6 +32,8 @@ import java.nio.CharBuffer;
 import java.nio.charset.Charset;
 import java.nio.charset.CharsetEncoder;
 import java.nio.charset.CoderResult;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
 import javax.servlet.ServletException;
 import javax.servlet.ServletOutputStream;
@@ -39,6 +41,7 @@ import javax.servlet.WriteListener;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpServletResponseWrapper;
+import javax.xml.bind.DatatypeConverter;
 
 import org.apache.http.impl.EnglishReasonPhraseCatalog;
 
@@ -99,18 +102,32 @@ public class GroovityServletResponseWrapper extends HttpServletResponseWrapper {
 
 	public void commit() throws IOException {
 		if (bufferOutputStream != null) {
-			int numBytes = bufferOutputStream.getBufferSize();
-			if (numBytes >= 0) {
-				setContentLength(numBytes);
+			ResponseMeta rm = bufferOutputStream.getResponseMeta();
+			if(rm!=null && !shouldContinue(rm)) {
+				return;
 			}
 			bufferOutputStream.commit();
 		} else if (bufferWriter != null) {
-			int numBytes = bufferWriter.getBufferSize(getCharacterEncoding());
-			if (numBytes >= 0) {
-				setContentLength(numBytes);
+			ResponseMeta rm = bufferWriter.getResponseMeta(getCharacterEncoding());
+			if(rm!=null && !shouldContinue(rm)) {
+				return;
 			}
 			bufferWriter.commit();
 		}
+	}
+
+	private boolean shouldContinue(ResponseMeta rm) {
+		setContentLength(rm.length);
+		if(!containsHeader("ETag")) {
+			String etag =  "\""+DatatypeConverter.printBase64Binary(rm.hash)+"\"";
+			String inm = request.getHeader("If-None-Match");
+			if(inm!=null && inm.equals(etag)){
+				setStatus(304);
+				return false;
+			}
+			setHeader("Etag", etag);
+		}
+		return true;
 	}
 
 	public ServletOutputStream getOutputStream() throws IOException {
@@ -144,12 +161,12 @@ public class GroovityServletResponseWrapper extends HttpServletResponseWrapper {
 	private static class BufferOutputStream extends ServletOutputStream {
 		private final int buffer;
 		private final ServletOutputStream rawStream;
-		private ByteArrayOutputStream baos;
+		private BytesWriter baos;
 		private boolean flushed = false;
 
 		private BufferOutputStream(ServletOutputStream rawStream, int buffer) {
 			this.rawStream = rawStream;
-			this.baos = new ByteArrayOutputStream();
+			this.baos = new BytesWriter();
 			this.buffer = buffer;
 		}
 
@@ -196,11 +213,11 @@ public class GroovityServletResponseWrapper extends HttpServletResponseWrapper {
 			}
 		}
 
-		protected int getBufferSize() {
+		private ResponseMeta getResponseMeta() {
 			if (baos != null) {
-				return baos.size();
+				return baos.process();
 			}
-			return -1;
+			return null;
 		}
 
 		protected void commit() throws IOException {
@@ -284,11 +301,11 @@ public class GroovityServletResponseWrapper extends HttpServletResponseWrapper {
 			}
 		}
 
-		protected int getBufferSize(String encoding) {
+		protected ResponseMeta getResponseMeta(String encoding) {
 			if (caw != null) {
-				return caw.calculateBinaryLength(encoding);
+				return caw.process(encoding);
 			}
-			return -1;
+			return null;
 		}
 
 		protected void commit() {
@@ -422,20 +439,52 @@ public class GroovityServletResponseWrapper extends HttpServletResponseWrapper {
 	}
 	
 	private static class CharsWriter extends CharArrayWriter{
-		public int calculateBinaryLength(String encoding){
+
+		public ResponseMeta process(String encoding){
 			CharsetEncoder encoder = Charset.forName(encoding).newEncoder();
+			MessageDigest md;
+			try {
+				md = MessageDigest.getInstance("md5");
+			} catch (NoSuchAlgorithmException e) {
+				throw new RuntimeException(e);
+			}
 			int length = 0;
 			ByteBuffer out = ByteBuffer.allocate(8192);
 			CharBuffer cb = CharBuffer.wrap(this.buf, 0, this.count);
-			CoderResult cr = encoder.encode(cb, out, false);
-			length += out.position();
-			while (cr.isOverflow()) {
-				out.clear();
+			CoderResult cr = null;
+			while(cr==null || cr.isOverflow()) {
 				cr = encoder.encode(cb, out, false);
 				length+= out.position();
+				out.flip();
+				md.update(out);
+				out.clear();
 			}
-			return length;
+			encoder.encode(CharBuffer.allocate(0),out,true);
+			ResponseMeta rm = new ResponseMeta();
+			rm.hash = md.digest();
+			rm.length = length;
+			return rm;
 		}
 	}
 
+	private static class BytesWriter extends ByteArrayOutputStream{
+		public ResponseMeta process() {
+			MessageDigest md;
+			try {
+				md = MessageDigest.getInstance("md5");
+			} catch (NoSuchAlgorithmException e) {
+				throw new RuntimeException(e);
+			}
+			md.update(buf,0,count);
+			ResponseMeta rm = new ResponseMeta();
+			rm.length = this.count;
+			rm.hash = md.digest();
+			return rm;
+		}
+	}
+
+	private static class ResponseMeta{
+		int length;
+		byte[] hash;
+	}
 }

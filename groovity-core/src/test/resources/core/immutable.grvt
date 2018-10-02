@@ -28,4 +28,6 @@ class Widget{
 	String description
 }
 
-stream([title:'widget1',description:'one widget'] as Widget)
+write{
+	([title:'widget1',description:'one widget'] as Widget).toString()
+}

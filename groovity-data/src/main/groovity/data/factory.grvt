@@ -41,6 +41,8 @@ static destroy(){
 }
 
 @Function(info="Test whether a named type existing in the /data/types/ directory")
+@CompileStatic
+@SkipStatistics
 public boolean isKnownType(String type){
 	registry.isKnownType(type)
 }

@@ -147,7 +147,7 @@ class Portal{
 			</g:if>
 		~>
 		
-		stream <~<!DOCTYPE html>
+		write{<~<!DOCTYPE html>
 	<html>
 		<head>
 			<title>${get(body,'portal')?.title ?: layoutLib.conf.PORTAL_TITLE}</title>
@@ -286,7 +286,7 @@ class Portal{
 		</div>
 		</body>
 	</html>
-		~>;
+		~>}
 	}
 }
 		
@@ -306,7 +306,7 @@ class PortalLinks{
 			(!user && org.roles.contains('anon')) ||
 			user?.hasRole(body.request.session, path, org.roles)
 		){
-			stream <~
+			write{<~
 			<g:portlet title="${org.title}" link="${org.path}">
 				<ul class="portalLinks">
 					<g:each var="tool" in="${portal.getPages(path)}">
@@ -314,7 +314,7 @@ class PortalLinks{
 					</g:each>
 				</ul>
 			</g:portlet>
-			~>
+			~>}
 		}
 	}
 }
@@ -336,7 +336,7 @@ class Portlet{
 		def portletRoles = resolve(atts,'roles',String[].class)
 		portletRoles = portletRoles ? Arrays.asList(portletRoles) :[];
 		if(portletRoles.isEmpty() || body.roles.find{ portletRoles.contains(it) }){
-			stream <~
+			write{<~
 				<div class="portlet<g:if test="${wide}"> wide</g:if>">
 					<g:if test="${title}">
 						<div class="title">
@@ -350,7 +350,7 @@ class Portlet{
 					</g:if>
 					${body}
 				</div>
-			~>
+			~>}
 		}
 	}
 }

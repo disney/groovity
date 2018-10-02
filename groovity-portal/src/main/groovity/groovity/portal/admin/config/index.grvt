@@ -58,11 +58,11 @@ def queryString = request.queryString ?: '';
 def activeConfiguration = config.getConfiguration(configTree_selected);
 def configCellFormat = { row, col ->
 	def href = uri(base:"${request.requestURI}?${queryString}",{ param(name:"property",value:row.property?:''); param(name:"configValues_id",value:row.id?:''); });
-	stream <~ <a href="${href}">${row[col]}</a> ~>
+	<~ <a href="${href}">${row[col]}</a> ~>
 }
 def scopeFormat = { key, value -> 
 	def href = uri(base:request.requestURI,{ param(name:"configTree_selected",value:pathStack.join('')+key) });
-	stream <~ <a href="${href}">${key}</a> ~> 
+	<~ <a href="${href}">${key}</a> ~>
 }
 delegatedAdmin = user.hasRole(request.session, configTree_selected, ['admin']);
 <~

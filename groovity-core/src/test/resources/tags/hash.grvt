@@ -32,7 +32,7 @@ def h2 = hash{"abcdefg"}
 <g:write value="|"/>
 <g:write><g:hash value="${new ByteArrayInputStream(message.bytes)}" algorithm="md5" /></g:write>
 <g:write value="|"/>
-<g:write><g:hash value="${message}" encoding="hex" /></g:write>
+<g:write><g:hash encoding="hex" >${message}</g:hash></g:write>
 <g:write value="|"/>
 <g:hash var="h" value="${message}" algorithm="sha1" encoding="none"/>
 <g:write value="${javax.xml.bind.DatatypeConverter.printByte(h[0])}"/>

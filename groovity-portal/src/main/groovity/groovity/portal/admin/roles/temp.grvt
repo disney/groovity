@@ -41,7 +41,7 @@ def availableRoles = rolesLib.getRoles(rolesTree_selected);
 
 def scopeFormat = { key, value ->
 	def href = uri(base:request.requestURI,{ param(name:"rolesTree_selected",value:pathStack.join('')+key) });
-	stream <~ <a href="${href}">${key}</a> ~>
+	<~ <a href="${href}">${key}</a> ~>
 }
 	
 if(request.method=='POST' && role){

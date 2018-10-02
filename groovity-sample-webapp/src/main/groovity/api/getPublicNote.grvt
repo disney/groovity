@@ -50,14 +50,14 @@ if(!note){
 }
 if(note.worldRead){
 	if(variant.output=='text/html'){
-		stream <~ 
+		write{<~
 		<g:htmlShell>
 			<pre style="white-space: pre-wrap;"><g:write value="${note.message}"/></pre>
 			<blockquote>
 			${note.userName} @ ${note.created.format('yyyy/MM/dd hh:mm a')}
 			</blockquote>
 		</g:htmlShell>
-		~>
+		~>}
 	}
 	else{
 		write(value:note, filter: listPublicNotes.filters, pretty:true)

@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.IdentityHashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -75,6 +76,15 @@ public abstract class ModelWalker implements ModelVisitor {
 		return objectStack.peek();
 	}
 
+	public <T> T getContextObject(Class<T> context) {
+		for(Object o: objectStack) {
+			if(context.isInstance(o)) {
+				return context.cast(o);
+			}
+		}
+		return null;
+	}
+
 	@Override
 	public void visitNull() throws Exception {
 
@@ -88,6 +98,7 @@ public abstract class ModelWalker implements ModelVisitor {
 		}
 		AtomicInteger pos = new AtomicInteger(0);
 		positions.push(pos);
+		objectStack.push(iter);
 		try {
 			for(Object o : iter) {
 				visitListMember(o);
@@ -97,6 +108,7 @@ public abstract class ModelWalker implements ModelVisitor {
 		finally {
 			lastPos = positions.pop().get();
 			objects.remove(iter);
+			objectStack.pop();
 		}
 	}
 

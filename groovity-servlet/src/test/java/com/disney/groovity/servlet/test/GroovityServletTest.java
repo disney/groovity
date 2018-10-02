@@ -24,14 +24,17 @@
 package com.disney.groovity.servlet.test;
 
 import java.io.IOException;
+import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
 import javax.servlet.ServletException;
+import javax.xml.bind.DatatypeConverter;
 
-import org.junit.Assert;
+import static org.junit.Assert.*;
 
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -54,59 +57,135 @@ public class GroovityServletTest {
 		groovity.init(config);
 	}
 	
+	private MockHttpServletRequest makereq(String method, String uri) {
+		MockHttpServletRequest request = new MockHttpServletRequest(method, uri);
+		request.setPathInfo(uri);
+		return request;
+	}
+
 	@Test
 	public void testPath() throws ServletException, IOException{
 		String uri = "/foo/Bartholomew";
-		MockHttpServletRequest request = new MockHttpServletRequest("GET", uri);
-		request.setPathInfo(uri);
+		MockHttpServletRequest request = makereq("GET", "/foo/Bartholomew");
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		groovity.service(request, response);
-		Assert.assertEquals("Hello Bartholomew",response.getContentAsString().trim());
+		assertEquals("Hello Bartholomew",response.getContentAsString().trim());
 		
-		request = new MockHttpServletRequest("POST", uri);
-		request.setPathInfo(uri);
+		request = makereq("POST", uri);
 		response = new MockHttpServletResponse();
 		groovity.service(request, response);
-		Assert.assertEquals("Farewell Bartholomew",response.getContentAsString().trim());
+		assertEquals("Farewell Bartholomew",response.getContentAsString().trim());
 		
-		request = new MockHttpServletRequest("DELETE", uri);
-		request.setPathInfo(uri);
+		request = makereq("DELETE", uri);
 		response = new MockHttpServletResponse();
 		groovity.service(request, response);
-		Assert.assertEquals(405, response.getStatus());
+		assertEquals(405, response.getStatus());
 		String allowHeader = response.getHeader("Allow");
-		Assert.assertNotNull(allowHeader);
+		assertNotNull(allowHeader);
 		String[] ah = allowHeader.split(", ");
 		List<String> ahl = Arrays.asList(ah);
-		Assert.assertTrue("Expected GET in Allowed",ahl.contains("GET"));
-		Assert.assertTrue("Expected PUT in Allowed",ahl.contains("PUT"));
-		Assert.assertTrue("Expected POST in Allowed",ahl.contains("POST"));
+		assertTrue("Expected GET in Allowed",ahl.contains("GET"));
+		assertTrue("Expected PUT in Allowed",ahl.contains("PUT"));
+		assertTrue("Expected POST in Allowed",ahl.contains("POST"));
 		
-		request = new MockHttpServletRequest("HEAD", uri);
-		request.setPathInfo(uri);
+		request = makereq("HEAD", uri);
 		response = new MockHttpServletResponse();
 		groovity.service(request, response);
-		Assert.assertEquals(200, response.getStatus());
-		Assert.assertEquals("",response.getContentAsString().trim());
+		assertEquals(200, response.getStatus());
+		assertEquals("",response.getContentAsString().trim());
 	}
 	
 	@Test
 	public void testCustomBindingDecorator() throws Exception{
 		Map<String,Object> binding = new HashMap<>();
 		groovity.getGroovityScriptViewFactory().getGroovity().getBindingDecorator().decorateRecursive(binding);
-		Assert.assertEquals("bar", binding.get("foo"));
+		assertEquals("bar", binding.get("foo"));
 	}
 	
 
 	@Test
 	public void testCustomErrorDecorator() throws Exception{
 		String uri = "/stayAway";
-		MockHttpServletRequest request = new MockHttpServletRequest("GET", uri);
-		request.setPathInfo(uri);
+		MockHttpServletRequest request = makereq("GET", uri);
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		groovity.service(request, response);
-		Assert.assertEquals(405, response.getStatus());
+		assertEquals(405, response.getStatus());
 	}
-	
-	
+
+	@Test
+	public void testBuffered() throws Exception{
+		HashSet<String> seenHashes = new HashSet<>();
+		assertTrue(seenHashes.add(doBuffered("abcdefg")));
+		assertTrue(seenHashes.add(doBuffered("abcdefgh")));
+		assertTrue(seenHashes.add(doBuffered("hbcdefg")));
+		assertTrue(seenHashes.add(doBuffered("poiuytrewqlkjhgfdsambvcxz0987654321")));
+		byte[] underflow = new byte[9999];
+		Arrays.fill(underflow, (byte) 98);
+		assertTrue(seenHashes.add(doBuffered(new String(underflow))));
+		assertFalse(seenHashes.add(doBuffered("abcdefg")));
+		assertFalse(seenHashes.add(doBuffered("abcdefgh")));
+		assertFalse(seenHashes.add(doBuffered("hbcdefg")));
+		assertFalse(seenHashes.add(doBuffered("poiuytrewqlkjhgfdsambvcxz0987654321")));
+		byte[] overflow = new byte[10241];
+		Arrays.fill(overflow, (byte) 100);
+		MockHttpServletResponse response = bufferedResponse(new String(overflow));
+		assertNull(response.getHeader("ETag"));
+		assertEquals(0, response.getContentLength());
+	}
+
+	private String doBuffered(String input) throws Exception{
+		MessageDigest digest = MessageDigest.getInstance("MD5");
+		byte[] hash = digest.digest(input.getBytes());
+		String hashStr = "\""+DatatypeConverter.printBase64Binary(hash)+"\"";
+		MockHttpServletResponse response = bufferedResponse(input);
+		assertEquals(input.length(), response.getContentLength());
+		assertEquals(hashStr, response.getHeader("ETag"));
+		return hashStr;
+	}
+
+	private MockHttpServletResponse bufferedResponse(String input) throws Exception {
+		MockHttpServletRequest request = makereq("GET", "/buffer/"+input);
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		groovity.service(request, response);
+		return response;
+	}
+
+	@Test
+	public void testBufferedBytes() throws Exception{
+		HashSet<String> seenHashes = new HashSet<>();
+		assertTrue(seenHashes.add(doBufferedBytes("abcdefg")));
+		assertTrue(seenHashes.add(doBufferedBytes("abcdefgh")));
+		assertTrue(seenHashes.add(doBufferedBytes("hbcdefg")));
+		assertTrue(seenHashes.add(doBufferedBytes("poiuytrewqlkjhgfdsambvcxz0987654321")));
+		byte[] underflow = new byte[9999];
+		Arrays.fill(underflow, (byte) 98);
+		assertTrue(seenHashes.add(doBufferedBytes(new String(underflow))));
+		assertFalse(seenHashes.add(doBufferedBytes("abcdefg")));
+		assertFalse(seenHashes.add(doBufferedBytes("abcdefgh")));
+		assertFalse(seenHashes.add(doBufferedBytes("hbcdefg")));
+		assertFalse(seenHashes.add(doBufferedBytes("poiuytrewqlkjhgfdsambvcxz0987654321")));
+		byte[] overflow = new byte[10241];
+		Arrays.fill(overflow, (byte) 100);
+		MockHttpServletResponse response = bufferedBytesResponse(new String(overflow));
+		assertNull(response.getHeader("ETag"));
+		assertEquals(0, response.getContentLength());
+	}
+
+	private String doBufferedBytes(String input) throws Exception{
+		MessageDigest digest = MessageDigest.getInstance("MD5");
+		byte[] hash = digest.digest(input.getBytes());
+		String hashStr = "\""+DatatypeConverter.printBase64Binary(hash)+"\"";
+		MockHttpServletResponse response = bufferedBytesResponse(input);
+		assertEquals(input.length(), response.getContentLength());
+		assertEquals(hashStr, response.getHeader("ETag"));
+		return hashStr;
+	}
+
+	private MockHttpServletResponse bufferedBytesResponse(String input) throws Exception {
+		MockHttpServletRequest request = makereq("GET", "/bufferBytes/"+input);
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		groovity.service(request, response);
+		return response;
+	}
+
 }

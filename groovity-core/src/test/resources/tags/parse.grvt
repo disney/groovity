@@ -29,7 +29,7 @@ def o2 = parse{<~{"a":1,"b":2}~>}
 def o3 = parse{'{"a":1,"b":2}'}
 def o4 = parse{write{[a:1,b:2]}}
 def o5 = parse{write(to:""){[a:1,b:2]}}
-def o6 = parse{stream <~{"a":1,"b":2}~>}
+def o6 = parse{write{<~{"a":1,"b":2}~>}}
 
 assert o1 == o2
 assert o2 == o3

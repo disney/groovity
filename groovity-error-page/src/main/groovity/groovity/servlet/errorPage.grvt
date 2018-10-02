@@ -76,8 +76,8 @@ ${error.cause?.getClass()?.name}
 @Tag(info="Default error page HTML shell")
 class DefaultErrorHtmlPageShell{
 	def tag(Map atts, Closure body){
-		stream "<html><head><title>${atts.title}</title></head>"
+		out.write "<html><head><title>${atts.title}</title></head>"
 		body()
-		stream "</html>"
+		out.write "</html>"
 	}
 }

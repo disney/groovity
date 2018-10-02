@@ -103,7 +103,7 @@ class TreeBrowser{
 			format = { key, value -> 
 				
 				def href = uri(base:"${request.requestURI}?${queryString}",{ param(name:"${id}_selected",value:pathStack.join('')+key) });
-				stream <~ <a href="${href}">${key}</a> ~> 
+				<~ <a href="${href}">${key}</a> ~>
 			}
 		} 
 		pathStack = []
@@ -137,7 +137,7 @@ class TreeBrowser{
 			</g:each>
 		~>
 		currentMap = ["/":map];
-		stream <~
+		write{<~
 			<g:if test="${title}">
 				<div class="title">
 				${title}
@@ -148,6 +148,6 @@ class TreeBrowser{
 				<g:write value="${recursiveTemplate}" />
 			</ol>	
 			</div>
-		~>
+		~>}
 	}
 }
