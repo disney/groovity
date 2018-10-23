@@ -25,7 +25,7 @@ static conf=[
 	source:'elasticsearch',
 	ttl:60,
 	refresh:45,
-	'es.index':'unit_test_foo',
+	'es.index':'unit_test_bar',
 	'es.type':'bar'
 ]
 

@@ -44,10 +44,12 @@ bar.store()
 
 factory(bar.pointer)
 
-def results = get('elasticsearch','unit_test_foo/_search?q=name:myname&sort=pos:asc')
-
-assert results[0].something() == 'emanym'
-assert results[1].something() == 'MYNAME'
-
-foo.delete()
-bar.delete()
+def results = get('elasticsearch','unit_test_foo,unit_test_bar/_search?q=name:myname&sort=pos:asc')
+try{
+	assert results[0].something() == 'emanym'
+	assert results[1].something() == 'MYNAME'
+}
+finally{
+	foo.delete()
+	bar.delete()
+}
