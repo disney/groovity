@@ -39,6 +39,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -93,8 +94,8 @@ public class ModelXmlWriter extends ModelWalker{
 	final protected Writer escape;
 	int indent = 0;
 	final String indentChars;
-	ArrayDeque<String> listElementNames = new ArrayDeque<>();
-	ArrayDeque<Map<Class<?>,String>> listTypedElementNames = new ArrayDeque<>();
+	ArrayDeque<Optional<String>> listElementNames = new ArrayDeque<>();
+	ArrayDeque<Optional<Map<Class<?>,String>>> listTypedElementNames = new ArrayDeque<>();
 	String rootElementName;
 	boolean inAttribute=false;
 	private Transformer transformer = null;
@@ -228,7 +229,7 @@ public class ModelXmlWriter extends ModelWalker{
 				String tn = getTagName(je.getName().getNamespaceURI(), je.getName().getLocalPart());
 				writeTag(tn, je.getValue(), t -> {
 					try {
-						visitObject(t);
+						visit(t);
 					} catch (RuntimeException e) {
 						throw e;
 					} catch (Exception e) {
@@ -239,12 +240,12 @@ public class ModelXmlWriter extends ModelWalker{
 			else if(o instanceof Closure) {
 				@SuppressWarnings("rawtypes")
 				Closure c = (Closure) o;
-				visitObject(c.call());
+				visit(c.call());
 			}
 			else if(o instanceof Future) {
 				@SuppressWarnings("rawtypes")
 				Future f = (Future) o;
-				visitObject(f.get());
+				visit(f.get());
 			}
 			else{
 				if(inAttribute) {
@@ -380,6 +381,7 @@ public class ModelXmlWriter extends ModelWalker{
 		super.visit(o);
 	}
 	
+	@SuppressWarnings("rawtypes")
 	public void visitObjectField(String name, Object value) throws Exception{
 		if(inAttribute) {
 			writer.write(" ");
@@ -399,6 +401,13 @@ public class ModelXmlWriter extends ModelWalker{
 			return;
 		}
 		String listElementName = null;
+		//aggressively resolve closures and futures so we can determine type
+		if(value instanceof Closure) {
+			value = ((Closure) value).call();
+		}
+		else if(value instanceof Future) {
+			value = ((Future) value).get();
+		}
 		if(value instanceof List || (value!=null && value.getClass().isArray()) 
 				|| (mp!=null && (mp.getType().isArray() || List.class.isAssignableFrom(mp.getType())))) {
 			writeTag = false;
@@ -439,8 +448,8 @@ public class ModelXmlWriter extends ModelWalker{
 			if(xm!=null) {
 				listTypedNames = SKIP_TAG;
 			}
-			listElementNames.push(listElementName);
-			listTypedElementNames.push(listTypedNames);
+			listElementNames.push(Optional.of(listElementName));
+			listTypedElementNames.push(Optional.ofNullable(listTypedNames));
 		}
 		else {
 			XmlElement xe = getAnnotation(mp, XmlElement.class);
@@ -450,6 +459,8 @@ public class ModelXmlWriter extends ModelWalker{
 				}
 				name = getTagName(xe.namespace(), name);
 			}
+			listElementNames.push(Optional.empty());
+			listTypedElementNames.push(Optional.empty());
 		}
 		doDelimit = true;
 		if(writeTag) {
@@ -468,10 +479,8 @@ public class ModelXmlWriter extends ModelWalker{
 		else {
 			super.visitObjectField(name, value);
 		}
-		if(listElementName!=null) {
-			listElementNames.pop();
-			listTypedElementNames.pop();
-		}
+		listElementNames.pop();
+		listTypedElementNames.pop();
 	}
 	
 	private Object transformField(MetaProperty mp, Object value) {
@@ -591,10 +600,12 @@ public class ModelXmlWriter extends ModelWalker{
 	public void visitListMember(Object value) throws Exception{
 		doDelimit = true;
 		delimit();
-		String en = listElementNames.peek();
+		Optional<String> oen = listElementNames.peek();
+		String en = oen != null && oen.isPresent() ? oen.get() : null;
 		boolean writeTag = !(value instanceof Node);
 		if(writeTag){
-			Map<Class<?>,String> typedNames = listTypedElementNames.peek();
+			Optional<Map<Class<?>,String>> otn = listTypedElementNames.peek();
+			Map<Class<?>,String> typedNames = otn != null && otn.isPresent() ? otn.get() : null;
 			if(typedNames == SKIP_TAG) {
 				writeTag = false;
 			}
@@ -610,6 +621,8 @@ public class ModelXmlWriter extends ModelWalker{
 				if(en==null) {
 					en = getElementName(value);
 				}
+				listElementNames.push(Optional.empty());
+				listTypedElementNames.push(Optional.empty());
 				writeTag(en, value, t -> {
 					try {
 						super.visitListMember(t);
@@ -620,6 +633,8 @@ public class ModelXmlWriter extends ModelWalker{
 						throw new RuntimeException(e);
 					}
 				});
+				listElementNames.pop();
+				listTypedElementNames.pop();
 			}
 		}
 		if(!writeTag) {

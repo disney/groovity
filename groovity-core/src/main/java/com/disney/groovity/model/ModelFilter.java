@@ -352,7 +352,7 @@ public interface ModelFilter {
 			@Override
 			protected void filteredObject(ModelWalker mw, T value, ModelVisitor consumer)
 					throws Exception {
-				consumer.visitObject(transformer.apply(value));
+				visit(consumer, transformer.apply(value));
 			}
 		};
 	}
@@ -381,7 +381,8 @@ public interface ModelFilter {
 					}
 					else {
 						//no virtual field specified, instead the result will replace the object
-						value = result;
+						visit(consumer, result);
+						return;
 					}
 				}
 				consumer.visitObject(value);
@@ -413,7 +414,7 @@ public interface ModelFilter {
 				}
 				else {
 					//no virtual field specified, instead the result will replace the object
-					consumer.visitObject(result);
+					visit(consumer, result);
 				}
 				
 			}
@@ -666,7 +667,23 @@ public interface ModelFilter {
 		};
 	}
 	
-	
+	public default void visit(ModelVisitor consumer, Object obj) throws Exception {
+		if(obj == null) {
+			consumer.visitNull();
+			return;
+		}
+		Iterable<?> i = consumer.toIterableIfPossible(obj);
+		if(i!=null) {
+			consumer.visitList(i);
+		}
+		else {
+			if(obj.getClass().isArray() && obj.getClass().getComponentType().equals(char.class)) {
+				obj = new String((char[])obj);
+			}
+			consumer.visitObject(obj);
+		}
+	}
+
 	/**
 	 * FieldMatcher is a specialized base class for ModelFilters that filters object fields with 
 	 * knowledge of whether those fields match field path specs like "*", "fieldName", or "refA.refB.*" 

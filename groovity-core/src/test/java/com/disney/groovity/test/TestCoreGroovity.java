@@ -300,6 +300,11 @@ public class TestCoreGroovity {
 		Assert.assertEquals("{\"data\":{\"active\":true,\"flags\":\"xyz\",\"greeting\":\"Hello Joe\",\"inactive\":false,\"sig\":\"YWJj\",\"time\":1000000,\"timeSeconds\":1000},\"part1\":{\"subpartA\":\"subPartA\",\"subPartB\":\"subPartB\",\"subPartC\":\"subPartC\"},\"part2\":\"wheat\",\"part3\":null}{\"count\":2,\"images\":[{\"reverse\":\"gpj.oof\",\"name\":\"foo.jpg\"},{\"reverse\":\"gpj.rab\",\"name\":\"bar.jpg\"}],\"main\":{\"reverse\":\"gpj.zyx\",\"name\":\"xyz.jpg\"}}", result);
 	}
 	
+	@Test public void testDynamicModel() throws Exception{
+		Binding binding = new Binding();
+		run("/dynamicModel",binding);
+	}
+
 	@Test public void testPutDeep() throws Exception{
 		Binding binding = new Binding();
 		run("/putDeep",binding);

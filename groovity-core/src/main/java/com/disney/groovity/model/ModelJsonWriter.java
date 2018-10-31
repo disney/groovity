@@ -172,12 +172,12 @@ public class ModelJsonWriter extends ModelWalker{
 		else if(o instanceof Closure) {
 			@SuppressWarnings("rawtypes")
 			Closure c = (Closure) o;
-			visitObject(c.call());
+			visit(c.call());
 		}
 		else if(o instanceof Future) {
 			@SuppressWarnings("rawtypes")
 			Future f = (Future) o;
-			visitObject(f.get());
+			visit(f.get());
 		}
 		else {
 			writer.write("{");
