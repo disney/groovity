@@ -32,7 +32,7 @@ class Variety{
 	Attachment picture
 }
 
-class Fruit implements DataModel, Stored{
+class Fruit implements DataModel, Stored, Shared{
 	String name
 	Attachment picture
 	List<Variety> varieties

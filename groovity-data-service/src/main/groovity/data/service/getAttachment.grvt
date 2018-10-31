@@ -34,7 +34,7 @@ load '/data/factory'
 
 dataModel = factory(type, id)
 
-if(!dataModel){
+if(dataModel == null){
 	response.sendError(404)
 	return
 }
@@ -42,7 +42,7 @@ if(!dataModel){
 finder = new FindAttachmentWalker(name)
 finder.visit(dataModel)
 
-if(!finder.attachment){
+if(finder.attachment == null){
 	response.sendError(404)
 	return
 }

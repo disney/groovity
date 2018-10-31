@@ -42,7 +42,7 @@ load '/data/factory'
 factory.invalidate(type, id)
 dataModel = factory(type, id)
 
-if(!dataModel){
+if(dataModel == null){
 	response.sendError(404,"No DataModel Found ${id}")
 	return
 }
@@ -50,6 +50,9 @@ if(!dataModel){
 if(!(dataModel instanceof Stored)){
 	response.sendError(400,'DataModel cannot be Stored')
 	return
+}
+if(dataModel instanceof Shared){
+	dataModel = dataModel.copy()
 }
 
 File temp = File.createTempFile('attachment',null)

@@ -32,7 +32,7 @@ load '/data/factory'
 
 factory.invalidate(type, id)
 dataModel = factory(type, id)
-if(!dataModel){
+if(dataModel == null){
 	response.sendError(404)
 	return
 }

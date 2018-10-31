@@ -47,6 +47,9 @@ if(request.method == 'POST'){
 	//PUT must be a full representation per HTTP Semantics so then discard prior state
 	factory.invalidate(type, id)
 	dataModel = factory(type, id)
+	if(dataModel instanceof Shared){
+		dataModel = dataModel.copy()
+	}
 }
 if(dataModel == null){
 	dataModel = factory(type)

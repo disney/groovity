@@ -25,7 +25,7 @@ static conf=[
 	source: 'memory'
 ]
 
-class Node implements DataModel, Stored{
+class Node implements DataModel, Stored, Shared{
 	String name
 	String description
 	Date created
