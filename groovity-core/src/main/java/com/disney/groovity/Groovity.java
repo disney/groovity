@@ -145,6 +145,7 @@ public class Groovity implements GroovityConstants{
 	private static final List<String> internalMethodNames = Arrays.asList(RUN,LOAD,TAG,STREAM,"methodMissing","propertyMissing","$static_propertyMissing","$static_methodMissing");
 	
 	private static final Pattern sourcePattern = Pattern.compile("(?i)(/.*)\\".concat(GROOVITY_SOURCE_EXTENSION));
+	private static final Pattern traitPattern = Pattern.compile("\\btrait\\b");
 	private static final Script PLACEHOLDER_SCRIPT = new Script() {	
 		public Object run() {
 			return null;
@@ -192,6 +193,8 @@ public class Groovity implements GroovityConstants{
 	private Configurator configurator;
 	@SuppressWarnings("rawtypes")
 	private ConcurrentHashMap<String, Class> traits = new ConcurrentHashMap<>();
+	@SuppressWarnings("rawtypes")
+	private ConcurrentHashMap<String, Class> inherentTraits = new ConcurrentHashMap<>();
 	private List<CompilerConfigurationDecorator> compilerConfigurationDecorators;
 	private AtomicBoolean started = new AtomicBoolean(false);
 	
@@ -859,7 +862,7 @@ public class Groovity implements GroovityConstants{
 					long modTime = conn.getLastModified();
 					InputStream jarStream = conn.getInputStream();
 					try{
-						loadClasses(sourcePath, jarStream, modTime, true, newScriptDependencies, newScriptInits);
+						loadClasses(sourcePath, jarStream, modTime, true, newScriptDependencies, newScriptInits, false);
 						count++;
 					}
 					finally{
@@ -952,7 +955,7 @@ public class Groovity implements GroovityConstants{
 		long time1=System.currentTimeMillis();
 		FileInputStream jarStream = new FileInputStream(file);
 		try{
-			loadClasses(sourcePath, jarStream, file.lastModified(), false, newScriptDependencies, newScriptInits);
+			loadClasses(sourcePath, jarStream, file.lastModified(), false, newScriptDependencies, newScriptInits, true);
 		}
 		finally{
 			jarStream.close();
@@ -1002,7 +1005,7 @@ public class Groovity implements GroovityConstants{
 		return scriptClass;
 	}
 	
-	protected void loadClasses(String sourcePath, InputStream jarStream, long modTime, boolean embedded, HashMap<String,Collection<String>> newScriptDependencies, Map<String,Boolean> newScriptInits) throws IOException, IllegalAccessException, IllegalArgumentException, InvocationTargetException{
+	protected void loadClasses(String sourcePath, InputStream jarStream, long modTime, boolean embedded, HashMap<String,Collection<String>> newScriptDependencies, Map<String,Boolean> newScriptInits, boolean projectJar) throws IOException, IllegalAccessException, IllegalArgumentException, InvocationTargetException{
 		ArrayList<String> dependencies = new ArrayList<String>();
 		CompilerConfiguration compilerConfiguration = createCompilerConfiguration(null,dependencies);
 		GroovyClass[] classes = loadGroovyClasses(jarStream);
@@ -1011,7 +1014,13 @@ public class Groovity implements GroovityConstants{
 		ConcurrentHashMap<String, Class> traitsCopy = new ConcurrentHashMap<>(traits);
 		GroovityClassLoader loader = parentLoader!=null? new GroovityClassLoader(sourcePath,parentLoader,compilerConfiguration,this,cacheRefreshExecutor,traitsCopy) : new GroovityClassLoader(sourcePath,Thread.currentThread().getContextClassLoader(),compilerConfiguration,this,cacheRefreshExecutor,traitsCopy);
 		if(classes!=null){
-			Class<Script> scriptClass = loadGroovyClassesAndFindScript(loader, classes,traits,traitsCopy);
+			Class<Script> scriptClass;
+			if(projectJar) {
+				scriptClass = loadGroovyClassesAndFindScript(loader, classes,traits,traitsCopy);
+			}
+			else {
+				scriptClass = loadGroovyClassesAndFindScript(loader, classes,traits,traitsCopy, inherentTraits);
+			}
 			if(scriptClass!=null){
 				//this seemingly useless call will force failure if there are referenced traits missing so we can retry ...
 				for(@SuppressWarnings("rawtypes") Class c: loader.getLoadedClasses()) {
@@ -1167,7 +1176,7 @@ public class Groovity implements GroovityConstants{
 	}
 
 	protected void compile(boolean force, boolean init, GroovitySource... sources){
-		compile(force, init, new ConcurrentHashMap<>(), sources);
+		compile(force, init, new ConcurrentHashMap<>(inherentTraits), sources);
 	}
 	/**
 	 * Compare the timestamp of the source against an existing compiled version, only recompiling
@@ -1184,7 +1193,24 @@ public class Groovity implements GroovityConstants{
 		HashMap<String, File> deletedScripts = new HashMap<String, File>();
 		HashMap<String, Collection<String>> scriptDependencies = new HashMap<String, Collection<String>>();
 		HashMap<String, Boolean> scriptInits = new HashMap<String, Boolean>();
-		compileLoop(newScripts, newScriptDates, deletedScripts, scriptDependencies, scriptInits, force, init, 0, compilerTraits, sources);
+		List<GroovitySource> traitSources = new ArrayList<>();
+		List<GroovitySource> plainSources = new ArrayList<>();
+		for(GroovitySource source: sources) {
+			try {
+				if(traitPattern.matcher(source.getSourceCode()).find()) {
+					traitSources.add(source);
+					continue;
+				}
+			} catch (IOException e) {
+			}
+			plainSources.add(source);
+		}
+		if(!traitSources.isEmpty()) {
+			compileLoop(newScripts, newScriptDates, deletedScripts, scriptDependencies, scriptInits, force, init, 0, compilerTraits, traitSources.toArray(new GroovitySource[0]));
+		}
+		if(!plainSources.isEmpty()) {
+			compileLoop(newScripts, newScriptDates, deletedScripts, scriptDependencies, scriptInits, force, init, 0, compilerTraits, plainSources.toArray(new GroovitySource[0]));
+		}
 		List<Class<Script>> toDestroy = new ArrayList<Class<Script>>();
 		HashSet<String> sourceNames = new HashSet<>();
 		for(GroovitySource source: sources) {
@@ -1286,7 +1312,7 @@ public class Groovity implements GroovityConstants{
 			int numErrors, 
 			ConcurrentHashMap<String, Class> compilerTraits, 
 			GroovitySource... sources){
-		HashMap<String,GroovitySource> errorSources = new HashMap<>();
+		LinkedHashMap<String,GroovitySource> errorSources = new LinkedHashMap<>();
 		for(GroovitySource source: sources){
 			try{
 			GroovityCompilerEvent event = new GroovityCompilerEvent();
