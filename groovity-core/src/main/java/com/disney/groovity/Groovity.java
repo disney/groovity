@@ -974,6 +974,19 @@ public class Groovity implements GroovityConstants{
 		for(GroovyClass cl:classes){
 			defined.add(loader.defineClass(cl.getName(), cl.getBytes()));
 		}
+		//this seemingly useless call will force failure if there are referenced traits missing so we can retry ...
+		for(Class c: defined) {
+			Field[] fields = c.getDeclaredFields();
+			for(Field f: fields) {
+				f.getGenericType();
+			}
+			Method[]  dm = c.getDeclaredMethods();
+			for(Method m: dm) {
+				m.getGenericParameterTypes();
+				m.getGenericReturnType();
+				m.getGenericExceptionTypes();
+			}
+		}
 		for(Class c: defined){
 			if(Script.class.isAssignableFrom(c)){
 				scriptClass = c;
@@ -1004,7 +1017,7 @@ public class Groovity implements GroovityConstants{
 		}
 		return scriptClass;
 	}
-	
+
 	protected void loadClasses(String sourcePath, InputStream jarStream, long modTime, boolean embedded, HashMap<String,Collection<String>> newScriptDependencies, Map<String,Boolean> newScriptInits, boolean projectJar) throws IOException, IllegalAccessException, IllegalArgumentException, InvocationTargetException{
 		ArrayList<String> dependencies = new ArrayList<String>();
 		CompilerConfiguration compilerConfiguration = createCompilerConfiguration(null,dependencies);
@@ -1022,19 +1035,6 @@ public class Groovity implements GroovityConstants{
 				scriptClass = loadGroovyClassesAndFindScript(loader, classes,traits,traitsCopy, inherentTraits);
 			}
 			if(scriptClass!=null){
-				//this seemingly useless call will force failure if there are referenced traits missing so we can retry ...
-				for(@SuppressWarnings("rawtypes") Class c: loader.getLoadedClasses()) {
-					Field[] fields = c.getDeclaredFields();
-					for(Field f: fields) {
-						f.getGenericType();
-					}
-					Method[]  dm = c.getDeclaredMethods();
-					for(Method m: dm) {
-						m.getGenericParameterTypes();
-						m.getGenericReturnType();
-						m.getGenericExceptionTypes();
-					}
-				}
 				String path = getSourcePath(scriptClass);
 				String script = getScriptName(path);
 				String fixed = fixCase(script);
