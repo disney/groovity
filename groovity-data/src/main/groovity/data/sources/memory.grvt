@@ -31,6 +31,11 @@ static final String DEFAULT_DATA_POOL = 'DEFAULT_DATA_POOL'
  *
  * memory.pool = the name of the memory pool to store data in; this is effectively an ID namespace
  */
+
+static destroy(){
+	DATA_POOLS.clear()
+}
+
 @CompileStatic
 private static ConcurrentHashMap<String, MemoryData> getDataPool(Map typeConf){
 	String dataPoolName = DEFAULT_DATA_POOL;
