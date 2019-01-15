@@ -56,7 +56,7 @@ public class CORSOrigin {
 			if(portSpec.equals("*")){
 				allowingAnyPort=true;
 			}
-			else{
+			else if(portSpec.length() > 0){
 				this.port= Integer.parseInt(portSpec);
 			}
 			originSpec = originSpec.substring(0,cp);
