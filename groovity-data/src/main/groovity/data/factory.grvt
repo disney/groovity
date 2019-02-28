@@ -401,6 +401,7 @@ public ScheduledFuture watch(String type, String id, long interval, Closure rece
 @Function(info="create a watcher, which will call a closure with updated objects with an interval and time unit")
 public ScheduledFuture watch(String type, String id, long interval, TimeUnit unit, Closure receiver){
 	def pollingCursor = System.currentTimeMillis()-1
+	def lastStack = null
 	watchService.scheduleWithFixedDelay({
 		Binding watchBinding = new Binding();
 		ScriptHelper.THREAD_BINDING.set(watchBinding);
@@ -408,7 +409,14 @@ public ScheduledFuture watch(String type, String id, long interval, TimeUnit uni
 			pollingCursor = dateRange(type, id, pollingCursor, System.currentTimeMillis(), receiver)
 		}
 		catch(Exception e){
-			log(warn:"Error in watcher",thrown:e)
+			def stack = e.stackTrace
+			if(stack == lastStack){
+				log(warn:"Error in watcher\n${e.getClass().name}: ${e.message}")
+			}
+			else{
+				log(warn:"Error in watcher",thrown:e)
+			}
+			lastStack = stack
 		}
 		finally{
 			ScriptHelper.THREAD_BINDING.remove();
