@@ -262,78 +262,117 @@ public long dateRange(String key, long lowerBound, long upperBound, Map typeConf
 	else{
 		eqs.query = clause
 	}
-	boolean secondTry = false;
-	int remaining = -1;
-	HashSet alreadySeen = new HashSet();
-	remainLoop:
-	while(remaining != 0){
-		String restQuery = eqs.toRestQuery()
-		def delim = restQuery.contains("?") ? "&" : "?"
-		restQuery = "${restQuery}${delim}_source=${modCol}&sort=${modCol}:asc"
-		String esUrl = "${conf.get('es.baseUrl')}${restQuery}"
-		http(url:esUrl,timeout:conf.get('http.timeout')){
-			decorateHttp()
-			handler{ resp ->
-				HttpResponse httpResponse = (HttpResponse) resp
-				Map esMap = (Map) parse(value:resp)
-				intercept({
-					[
-						method: 'GET',
-						url: restQuery,
-						status: httpResponse.statusLine.statusCode,
-						response: esMap
-					]
-				})
-				switch(httpResponse.statusLine.statusCode){
-					case 200:
-						def factory = load('/data/factory')
-						validate(esMap)
-						Map hitsMap = (Map) esMap.get('hits')
-						if(hitsMap==null){
-							remaining=0;
-							return
-						}
-						int total = (int) hitsMap.get('total')
-						remaining = total - ( eqs.from ?: 0)
-						List hits = (List) hitsMap.get('hits')
-						def numHits = hits.size();
-						for(int i=0; i< numHits; i++){
-							Map hit = (Map) hits.get(i)
-							String itype = (String) hit.get('_type')
-							Object cbValue = (String) hit.get('_id')
-							if(factory.invokeMethod('isKnownType',itype)){
-								cbValue = new Pointer(itype,cbValue)
-							}
-							if(alreadySeen.add(cbValue)){
-								keyCallback(cbValue)
-								Map sourceMap = (Map) hit.get("_source")
-								String modVal = (String)sourceMap.get(modCol);
-								long hdate = format ? format.parse(modVal).time : Long.valueOf(modVal);
-								if(hdate > lowerBound){
-									lowerBound = hdate
-								}
-							}
-							else{
-								if(!secondTry){
-									log(debug:"Hit duplicate ${cbValue}, will start over for good measure")
-									//sometimes if two objects have the same timestamp, ordering can be arbitrary, this means we may have missed something
-									eqs.from=0
-									remaining = -1;
-									secondTry = true;
-									break
-								}
-							}
-						}
-						if(remaining>0){
-							remaining -= numHits
-							if(remaining && numHits>0){
-								eqs.from = eqs.from ? eqs.from + numHits : numHits
-							}
-						}
-						return null
-					default:
-						log(error:<~${httpResponse.statusLine} ElasticSearch Error Message: <g:write value="${esMap}"/>~>)
-						throw new RuntimeException("${httpResponse.statusLine} error trying to connect to elasticsearch")
+	eqs.sort="_doc"
+	String restQuery = eqs.toRestQuery()
+	def delim = restQuery.contains("?") ? "&" : "?"
+	restQuery = "${restQuery}${delim}_source=${modCol}&scroll=1m"
+	String esUrl = "${conf.get('es.baseUrl')}${restQuery}"
+	String scrollID = null;
+	def requestData = null
+	def requestMethod = 'GET'
+	def requestUrl = restQuery
+	def resultHandler={ resp ->
+		HttpResponse httpResponse = (HttpResponse) resp
+		Map esMap = (Map) parse(value:resp)
+		intercept({
+			[
+				method: requestMethod,
+				url: requestUrl,
+				data: requestData,
+				status: httpResponse.statusLine.statusCode,
+				response: esMap
+			]
+		})
+		switch(httpResponse.statusLine.statusCode){
+			case 200:
+				def factory = load('/data/factory')
+				validate(esMap)
+				scrollID = esMap.get('_scroll_id')
+				Map hitsMap = (Map) esMap.get('hits')
+				if(hitsMap==null){
+					return 0
+				}
+				List hits = (List) hitsMap.get('hits')
+				def numHits = hits.size();
+				for(int i=0; i< numHits; i++){
+					Map hit = (Map) hits.get(i)
+					String itype = (String) hit.get('_type')
+					Object cbValue = (String) hit.get('_id')
+					if(factory.invokeMethod('isKnownType',itype)){
+						cbValue = new Pointer(itype,cbValue)
+					}
+					//log(info:"Date range callback for ${cbValue}")
+					keyCallback(cbValue)
+					Map sourceMap = (Map) hit.get("_source")
+					String modVal = (String)sourceMap.get(modCol);
+					long hdate = format ? format.parse(modVal).time : Long.valueOf(modVal);
+					if(hdate > lowerBound){
+						lowerBound = hdate
+					}
+				}
+				return numHits
+			default:
+				log(error:<~${httpResponse.statusLine} ElasticSearch Error Message: <g:write value="${esMap}"/>~>)
+				throw new RuntimeException("${httpResponse.statusLine} error trying to connect to elasticsearch")
+		}
+	}
+	def total = 0
+	int handled = (int) http(url:esUrl,timeout:conf.get('http.timeout')){
+		decorateHttp()
+		tag('handler',[:],resultHandler)
+	};
+	total += handled
+	requestUrl = '_search/scroll'
+	def scrollUrl = "${conf.get('es.baseUrl')}${requestUrl}"
+	try{
+		requestData =  [
+			scroll: '1m',
+			scroll_id: scrollID
+		]
+		requestMethod = 'POST'
+		int scrollCount = 0
+		while(handled != 0){
+			handled = (int) http(
+				method: requestMethod,
+				url: scrollUrl,
+				timeout: conf.get('http.timeout'),
+				data: requestData
+			){
+				header(name:"Content-Type",value:"application/json")
+				decorateHttp()
+				tag('handler',[:],resultHandler)
+			}
+			total += handled
+			scrollCount++
+		}
+		//log(info:"Completed ${scrollCount} scrolls for (${scrollID.take(5)}...${scrollID[-5..-1]})  with ${total} for ${restQuery}")
+	}
+	finally{
+		if(scrollID){
+			requestData = null
+			requestUrl = "_search/scroll/${scrollID}"
+			requestMethod = 'DELETE'
+			http(
+				method: requestMethod,
+				url: "${conf.get('es.baseUrl')}${requestUrl}",
+				timeout: conf.get('http.timeout'),
+				data: requestData
+			){
+				header(name:"Content-Type",value:"application/json")
+				decorateHttp()
+				handler{  resp ->
+					HttpResponse httpResponse = (HttpResponse) resp
+					Map esMap = (Map) parse(value:resp)
+					intercept({
+						[
+							method: requestMethod,
+							url: requestUrl,
+							data: requestData,
+							status: httpResponse.statusLine.statusCode,
+							response: esMap
+						]
+					})
+					//log(info:"Deleted scroll (${scrollID.take(5)}...${scrollID[-5..-1]}) and got ${httpResponse.statusLine} ${esMap} for  for ${restQuery}")
 				}
 			}
 		}
