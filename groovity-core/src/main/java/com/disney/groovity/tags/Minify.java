@@ -97,10 +97,10 @@ public class Minify implements Taggable {
 		}
 		
 		private final void writeChar(final char c) throws IOException{
-			buffer[pos++]=c;
 			if(pos==bufSize){
 				flush();
 			}
+			buffer[pos++]=c;
 		}
 		
 		public final void write(final int c) throws IOException{
