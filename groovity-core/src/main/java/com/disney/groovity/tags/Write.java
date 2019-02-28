@@ -146,6 +146,7 @@ public class Write implements Taggable{
 		else {
 			throw new IllegalArgumentException("write tag requires valid Writer or String.class for 'to', unrecognized option "+to);
 		}
+		Writer returnWriter = writer;
 		if(escape!=null){
 			String esc = escape.toString();
 			if(esc.equalsIgnoreCase("xml")){
@@ -265,7 +266,7 @@ public class Write implements Taggable{
 		if(!returnTo) {
 			return null;
 		}
-		Object rval = returnString ? writer.toString() : writer;
+		Object rval = returnString ? returnWriter.toString() : returnWriter;
 		if(attributes.get(VAR) != null) {			
 			bind(body,attributes.get(VAR).toString(),rval);
 		}

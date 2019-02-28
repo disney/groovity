@@ -326,3 +326,5 @@ idoc.abc='xyz'
 rt = write(value:idoc,to:"",format:'xml', namespaces:[sample:'http://sample.com/', example:'http://example.com/'])
 assert rt == '<sample:idoc example:id="123" xmlns:sample="http://sample.com/" xmlns:ns3="http://custom.com/" xmlns:example="http://example.com/"><sample:abc>xyz</sample:abc><ns3:foo>bar</ns3:foo></sample:idoc>'
 
+rt = write(value:idoc,to:"",format:'xml', namespaces:[sample:'http://sample.com/', example:'http://example.com/'], escape:'xml')
+assert rt == '&lt;sample:idoc example:id=&quot;123&quot; xmlns:sample=&quot;http://sample.com/&quot; xmlns:ns3=&quot;http://custom.com/&quot; xmlns:example=&quot;http://example.com/&quot;&gt;&lt;sample:abc&gt;xyz&lt;/sample:abc&gt;&lt;ns3:foo&gt;bar&lt;/ns3:foo&gt;&lt;/sample:idoc&gt;'
