@@ -75,6 +75,7 @@ import org.apache.http.client.config.CookieSpecs;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpDelete;
+import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpHead;
 import org.apache.http.client.methods.HttpOptions;
@@ -364,7 +365,7 @@ public class Http implements Taggable {
 				"POST".equalsIgnoreCase(method)? new HttpPost(uri) :
 				"PUT".equalsIgnoreCase(method)? new HttpPut(uri) :
 				"HEAD".equalsIgnoreCase(method)? new HttpHead(uri) :
-				"DELETE".equalsIgnoreCase(method)? new HttpDelete(uri) :
+				"DELETE".equalsIgnoreCase(method)? ( data!=null ? new HttpBodyDelete(uri) : new HttpDelete(uri)) :
 				"OPTIONS".equalsIgnoreCase(method)? new HttpOptions(uri) :
 				new HttpGet(uri);
 			if(headers.size()>0){
@@ -768,5 +769,18 @@ public class Http implements Taggable {
 	@SuppressWarnings({"rawtypes","unchecked"})
 	public static void offerInterceptor(Map variables, HttpRequestInterceptor interceptor){
 		variables.put(INTERCEPTOR_BINDING, Optional.of(interceptor));
+	}
+
+	static class HttpBodyDelete extends HttpEntityEnclosingRequestBase {
+		public HttpBodyDelete(final URI uri) {
+			super();
+			setURI(uri);
+		}
+
+		@Override
+		public String getMethod() {
+			return "DELETE";
+		}
+
 	}
 }

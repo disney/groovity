@@ -349,8 +349,10 @@ public long dateRange(String key, long lowerBound, long upperBound, Map typeConf
 	}
 	finally{
 		if(scrollID){
-			requestData = null
-			requestUrl = "_search/scroll/${scrollID}"
+			requestData =  [
+				scroll_id: scrollID
+			]
+			requestUrl = "_search/scroll"
 			requestMethod = 'DELETE'
 			http(
 				method: requestMethod,
