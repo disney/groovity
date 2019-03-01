@@ -4,7 +4,7 @@
 	<groupId>com.disney.groovity</groupId>
 	<artifactId>groovity-parent</artifactId>
 	<packaging>pom</packaging>
-	<version>2.0.4-SNAPSHOT</version>
+	<version>2.0.4</version>
 	<name>Groovity parent project</name>
 	<description>
 		Groovity is a JVM-based scripting language and runtime that can be
@@ -207,7 +207,7 @@
 	<scm>
 		<connection>scm:git:ssh://git@github.com/disney/groovity.git</connection>
 		<url>https://github.com/disney/groovity</url>
-		<tag>HEAD</tag>
+		<tag>groovity-parent-2.0.4</tag>
 	</scm>
 	<distributionManagement>
 		<snapshotRepository>
