@@ -25,6 +25,7 @@ import com.disney.groovity.elasticsearch.EsQueryString
 import com.disney.groovity.data.StorePayload
 import java.text.SimpleDateFormat
 import org.apache.http.HttpResponse
+import org.apache.http.util.EntityUtils
 
 static Map conf=[
 	'es.baseUrl':'http://localhost:9200/',
@@ -66,7 +67,13 @@ public void call(Map<String,Object> map, Map typeConf){
 	map.each{ entry ->
 		EsQueryString eqs = new EsQueryString(entry.key,typeConf) 
 		String restQuery = eqs.toRestQuery()
-		if(eqs.isSearching() && !eqs.source){
+		String requestMethod = 'GET'
+		String requestData = null
+		if(eqs.source){
+			requestMethod = 'POST'
+			requestData = eqs.source
+		}
+		else if(eqs.isSearching()){
 			if(restQuery.contains('?')){
 				restQuery += "&_source=false"
 			}
@@ -75,14 +82,18 @@ public void call(Map<String,Object> map, Map typeConf){
 			}
 		}
 		String esUrl = "${conf.get('es.baseUrl')}${restQuery}"
-		entry.value = http(async:true,url:esUrl,timeout:conf.get('http.timeout')){
+		entry.value = http(method: requestMethod, async: true, url: esUrl, timeout: conf.get('http.timeout'), data: requestData){
+			if(requestData){
+				header(name:'Content-Type',value:'application/json')
+			}
 			decorateHttp()
 			handler{ resp ->
 				HttpResponse httpResponse = (HttpResponse) resp
-				Map esMap = (Map) parse(value:resp)
+				Map esMap = parseResponse(httpResponse)
 				intercept({
 					[
-						method: 'GET',
+						method: requestMethod,
+						data: requestData,
 						url: restQuery,
 						status: httpResponse.statusLine.statusCode,
 						response: esMap
@@ -132,6 +143,16 @@ public void call(Map<String,Object> map, Map typeConf){
 }
 
 @CompileStatic
+Map parseResponse(HttpResponse httpResponse){
+	def contentType = httpResponse.entity?.contentType?.value
+	if(!(contentType?.startsWith('application/json'))){
+		def body = EntityUtils.toString(httpResponse.entity, 'UTF-8')
+		throw new RuntimeException("Unexpected HTTP response from ElasticSearch ${httpResponse.entity?.contentType?.value}: ${httpResponse.statusLine}\n${body}\n")
+	}
+	(Map) parse(value: httpResponse)
+}
+
+@CompileStatic
 private static void intercept(Closure producer){
 	if(_interceptor!=null){
 		Object exchange = producer()
@@ -167,7 +188,7 @@ public String store(String key, StorePayload payload, Map typeConf){
 		header(name:'Content-Type',value:'application/json')
 		handler{ resp ->
 			HttpResponse httpResponse = (HttpResponse) resp
-			Map esMap = (Map) parse(value:resp)
+			Map esMap = parseResponse(httpResponse)
 			intercept({
 				[
 					method: method,
@@ -215,7 +236,7 @@ public void delete(String key, Map typeConf){
 		decorateHttp()
 		handler{ resp ->
 			HttpResponse httpResponse = (HttpResponse) resp
-			Map esMap = (Map) parse(value:resp)
+			Map esMap = parseResponse(httpResponse)
 			intercept({
 				[
 					method: 'DELETE',
@@ -273,7 +294,7 @@ public long dateRange(String key, long lowerBound, long upperBound, Map typeConf
 	def requestUrl = restQuery
 	def resultHandler={ resp ->
 		HttpResponse httpResponse = (HttpResponse) resp
-		Map esMap = (Map) parse(value:resp)
+		Map esMap = parseResponse(httpResponse)
 		intercept({
 			[
 				method: requestMethod,
@@ -364,7 +385,7 @@ public long dateRange(String key, long lowerBound, long upperBound, Map typeConf
 				decorateHttp()
 				handler{  resp ->
 					HttpResponse httpResponse = (HttpResponse) resp
-					Map esMap = (Map) parse(value:resp)
+					Map esMap = parseResponse(httpResponse)
 					intercept({
 						[
 							method: requestMethod,

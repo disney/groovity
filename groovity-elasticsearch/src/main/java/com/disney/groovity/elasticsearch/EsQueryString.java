@@ -236,11 +236,6 @@ public class EsQueryString {
 				builder.append(d).append("size=").append(size);
 				d="&";
 			}
-			if(source!=null) {
-				builder.append(d).append("source=").append(encode(source));
-				d="&";
-				builder.append(d).append("source_content_type=").append("application/json");
-			}
 		}
 		return builder.toString();
 	}
