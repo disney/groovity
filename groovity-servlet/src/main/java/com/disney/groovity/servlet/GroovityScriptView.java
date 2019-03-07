@@ -83,7 +83,6 @@ import groovy.lang.Script;
 public class GroovityScriptView implements AuthConstants{
 	private static final Logger logger = Logger.getLogger(GroovityScriptView.class.getName());
 	public static String GROOVITY_ERROR = "groovity.error";
-	private static final Pattern pathPattern = Pattern.compile("(?<=^|})([^{]+)");
 	private static final Pattern sizePattern = Pattern.compile("([\\d.]+)([GMK]B)?", Pattern.CASE_INSENSITIVE);
 	private final String name;
 	private final Class<Script> scriptClass;
@@ -356,24 +355,75 @@ public class GroovityScriptView implements AuthConstants{
 		}
 		return outputs.size()>0?outputs:null;
 	}
+
+	private int findEndOfBrace(String pattern, int startBrace) {
+		int braceDepth = 1;
+		for(int i = startBrace+1;i<pattern.length();i++) {
+			char c = pattern.charAt(i);
+			if(c == '{') {
+				braceDepth++;
+			}
+			else if(c == '}') {
+				braceDepth--;
+			}
+			if(braceDepth==0) {
+				return i;
+			}
+		}
+		return -1;
+	}
+
+	private int findNextDelimiter(String pattern, int start) {
+		for(int i = start;i<pattern.length();i++) {
+			char c = pattern.charAt(i);
+			if(c == '/' || c == '{') {
+				return i;
+			}
+		}
+		return -1;
+	}
 	
 	private String fixPatternCase(String pattern){
 		if(!viewFactory.isCaseSensitive()){
-			//we need to convert static elements in the path pattern to lowercase for case insensitive matching
-			Matcher matcher = pathPattern.matcher(pattern);
-			StringBuffer buf = new StringBuffer();
-			while(matcher.find()){
-				matcher.appendReplacement(buf, matcher.group(1).toLowerCase());
+			StringBuilder fixed = new StringBuilder();
+			int cursor = 0;
+			int mn = 1;
+			while(cursor < pattern.length()) {
+				char c = pattern.charAt(cursor);
+				if(c=='/') {
+					fixed.append(c);
+					cursor++;
+					continue;
+				}
+				if(c=='{') {
+					int endBrace = findEndOfBrace(pattern, cursor);
+					if(endBrace == -1) {
+						throw new RuntimeException("Unbalanced curly braces in pattern "+pattern);
+					}
+					endBrace++;
+					fixed.append(pattern, cursor, endBrace);
+					cursor = endBrace;
+					continue;
+				}
+				int next = findNextDelimiter(pattern,cursor);
+				if(next == -1) {
+					next = pattern.length();
+				}
+				fixed.append("{_t_lit_")  ;
+				fixed.append(String.valueOf(mn++));
+				fixed.append("_:(?i)");
+				fixed.append(Pattern.quote(pattern.substring(cursor,next)));
+				fixed.append("}");
+				cursor = next;
 			}
-			matcher.appendTail(buf);
-			//System.out.println("Changed pattern "+pattern+" to "+buf.toString());
-			pattern = buf.toString();
+			//System.out.println("Changed pattern "+pattern+" to "+fixed.toString());
+			pattern = fixed.toString();
 		}
 		return pattern;
 	}
 	
-	public Processor getProcessor(final PathTemplate path, final Map<String, String> resolved){
-		return new Processor(path,resolved);
+	public Processor getProcessor(final Map<String, String> resolved){
+		return new Processor(resolved);
 	}
 	
 	public WebSocket getSocket(Session session) throws InstantiationException, IllegalAccessException, ClassNotFoundException, IllegalArgumentException, InvocationTargetException{
@@ -463,11 +513,9 @@ public class GroovityScriptView implements AuthConstants{
 	}
 	
 	public class Processor{
-		private final PathTemplate path;
 		private final Map<String,String> resolvedVariables;
 		
-		private Processor(PathTemplate path, Map<String,String> resolvedVariables){
-			this.path=path;
+		private Processor(Map<String,String> resolvedVariables){
 			this.resolvedVariables=resolvedVariables;
 		}
 
@@ -520,32 +568,6 @@ public class GroovityScriptView implements AuthConstants{
 				}
 			}
 			
-			if(!viewFactory.isCaseSensitive()){
-				ArrayList<String> values = new ArrayList<String>();
-				String tpath = request.getPathInfo();//.toLowerCase();
-				String ipath = tpath;
-				ipath = tpath.toLowerCase();
-				//lookup value positions and retrieve from original path
-				//so we can preserve variable case, otherwise everything is converted to lowercase
-				int startpos = 0;
-				int pos = 0;
-				for(int i=0;i<values.size();i++){
-					String value = values.get(i);
-					pos = ipath.indexOf(value, startpos);
-					if(pos > 0){
-						startpos = pos+value.length();
-						String cValue = tpath.substring(pos,startpos);
-						if(!cValue.equals(value) && cValue.equalsIgnoreCase(value)){
-							values.set(i, cValue);
-						}
-					}
-				}
-				List<String> names = path.getTemplateVariables();
-				for(int i=0;i<names.size();i++){
-					resolvedVariables.put(names.get(i), values.get(i));
-				}
-			}
-				
 			if(request.getAttribute("com.newrelic.agent.TRANSACTION_NAME")==null){
 				request.setAttribute("com.newrelic.agent.TRANSACTION_NAME", name);
 			}
@@ -657,7 +679,9 @@ public class GroovityScriptView implements AuthConstants{
 				else{
 					enc = charsets.get(0);
 				}
-				contentTypeHeader.append("; charset=").append(enc);
+				if(contentTypeHeader.length() != 0){
+					contentTypeHeader.append("; charset=").append(enc);
+				}
 			}
 			if(languages!=null){
 				Locale lang = null;

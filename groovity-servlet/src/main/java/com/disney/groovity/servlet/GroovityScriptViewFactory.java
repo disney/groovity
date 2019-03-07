@@ -70,7 +70,6 @@ public class GroovityScriptViewFactory{
 	private PathView[] pathViews;
 	private Groovity factory;
 	
-	private boolean caseSensitive = true;
 	private GroovityErrorHandlerChain errorHandlers = GroovityErrorHandlerChain.createDefault();
 	private ServletContext servletContext;
 	private VerifierFactory verifierFactory;
@@ -128,9 +127,6 @@ public class GroovityScriptViewFactory{
 		if(!requestPath.startsWith("/")){
 			requestPath = "/".concat(requestPath);
 		}
-		if(!caseSensitive){
-			requestPath = requestPath.toLowerCase();
-		}			
 		Set<String> possibleMethods = null;
 		//evaluate path templates
 		Map<String,String> resolved  = new HashMap<>();
@@ -139,13 +135,13 @@ public class GroovityScriptViewFactory{
 			final PathView pv = pvs[i];
 			final PathTemplateMethods templateMethods = pv.pathTemplateMethods;
 			final PathTemplate template = templateMethods.getPathTemplate();
-			//System.out.println("Evaluating "+template.getTemplate()+" for "+viewName);
+			//System.out.println("Evaluating "+template.getTemplate()+" for "+requestPath);
 			if(template.match(requestPath, resolved)){
 				final Set<String> supportedMethods = templateMethods.getMethods();
 				//validate request method if required
 				if(supportedMethods==null || supportedMethods.isEmpty() || supportedMethods.contains(requestMethod)){
 					//System.out.println("Found match ");
-					return pv.groovityScriptView.getProcessor(template, resolved);
+					return pv.groovityScriptView.getProcessor(resolved);
 				}
 				else{
 					if(possibleMethods==null){

@@ -54,6 +54,7 @@ public class GroovityServletTest {
 		config.addInitParameter(GroovityServlet.SOURCE_LOCATION_PARAM, "src/test/resources");
 		config.addInitParameter(GroovityServlet.BINDING_DECORATOR, "com.disney.groovity.servlet.test.TestCustomBindingDecorator");
 		config.addInitParameter(GroovityServlet.ERROR_CHAIN_DECORATOR, "com.disney.groovity.servlet.test.TestCustomErrorChainDecorator");
+		config.addInitParameter(GroovityServlet.CASE_SENSITIVE_PARAM, "false");
 		groovity.init(config);
 	}
 	
