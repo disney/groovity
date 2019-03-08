@@ -1197,11 +1197,11 @@ public class Groovity implements GroovityConstants{
 		List<GroovitySource> plainSources = new ArrayList<>();
 		for(GroovitySource source: sources) {
 			try {
-				if(traitPattern.matcher(source.getSourceCode()).find()) {
+				if(source.exists() && traitPattern.matcher(source.getSourceCode()).find()) {
 					traitSources.add(source);
 					continue;
 				}
-			} catch (IOException e) {
+			} catch (Exception e) {
 			}
 			plainSources.add(source);
 		}
