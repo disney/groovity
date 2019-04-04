@@ -530,6 +530,22 @@ public class TestGroovityTags {
 		Assert.assertEquals("abcdef java.util.concurrent.TimeoutException", output);
 	}
 	@Test
+	public void testBind() throws Exception{
+		run("/bind");
+	}
+	@Test
+	public void testNorm() throws Exception{
+		run("/norm");
+	}
+	@Test
+	public void testRebind() throws Exception{
+		run("/rebind");
+	}
+	@Test
+	public void testUnbind() throws Exception{
+		run("/unbind");
+	}
+	@Test
 	public void testAccept() throws Exception{
 		Logger asyncChannelLogger = Logger.getLogger("com.disney.groovity.util.AsyncChannel");
 		Level prev = asyncChannelLogger.getLevel();

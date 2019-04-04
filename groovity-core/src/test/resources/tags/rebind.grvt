@@ -1,0 +1,72 @@
+/*******************************************************************************
+ * © 2019 Disney | ABC Television Group
+ *
+ * Licensed under the Apache License, Version 2.0 (the "Apache License")
+ * with the following modification; you may not use this file except in
+ * compliance with the Apache License and the following modification to it:
+ * Section 6. Trademarks. is deleted and replaced with:
+ *
+ * 6. Trademarks. This License does not grant permission to use the trade
+ *     names, trademarks, service marks, or product names of the Licensor
+ *     and its affiliates, except as required to comply with Section 4(c) of
+ *     the License and to reproduce the content of the NOTICE file.
+ *
+ * You may obtain a copy of the Apache License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the Apache License with the above modification is
+ * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the Apache License for the specific
+ * language governing permissions and limitations under the Apache License.
+ *******************************************************************************/
+ 
+y = 1
+x = 2
+assert x+y == 3
+rebind(x: 4, y: 5){
+	assert x+y == 9
+	rebind(y:11){
+		assert x + y == 15
+	}
+	assert x + y == 9
+}
+assert x+y == 3
+rebind(x:19){
+	assert x+y == 20
+}
+rebind(y:9){
+	assert x+y == 11
+	rebind(y:11){
+		assert x + y == 13
+	}
+	assert x + y == 11
+}
+
+rebind(z:13){
+	assert x + z == 15
+}
+def mp = null
+try{
+	assert x + z == 15
+}
+catch(MissingPropertyException m){
+	mp = m
+}
+assert mp != null
+
+String result = <~
+<g:bind q="${5}" p="${9*9}" />
+<g:write value="${q*p}:"/>
+<g:rebind q="${3}">
+<g:write value="${q*p}:"/>
+<g:rebind p="${55}">
+<g:write value="${q*p}:"/>
+</g:rebind>
+<g:write value="${q*p}:"/>
+</g:rebind>
+<g:write value="${q*p}:"/>
+~>
+
+assert result == '405:243:165:243:405:'
