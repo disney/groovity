@@ -1,20 +1,20 @@
 import com.disney.groovity.ArgsException
 
-norm(cheese: 123)
+prebind(cheese: 123)
 
 assert cheese == 123
 
 cheese = "456"
 
-norm(cheese: 123)
+prebind(cheese: 123)
 
 assert cheese == 456
 
-norm(cheese: String.class)
+prebind(cheese: String.class)
 
 assert cheese == '456'
 
-norm(cheese: null)
+prebind(cheese: null)
 
 assert cheese == '456'
 
@@ -44,34 +44,34 @@ binding.variables.remove('cheese')
  * language governing permissions and limitations under the Apache License.
  *******************************************************************************/
  
-norm(cheese: null)
+prebind(cheese: null)
 
 assert cheese == null
 
 def argEx
 try{
-	norm(cheese: String.class)
+	prebind(cheese: String.class)
 }
 catch(ArgsException a){
 	argEx = a
 }
 assert argEx != null
 
-norm(cheese: true)
+prebind(cheese: true)
 
-norm(cheese: String.class)
+prebind(cheese: String.class)
 
 assert cheese == 'true'
 assert cheese != true
 
-norm(cheese: Boolean.class)
+prebind(cheese: Boolean.class)
 
 assert cheese == true
 assert cheese != 'true'
 
 argEx = null
 try{
-	norm(cheese: 123)
+	prebind(cheese: 123)
 }
 catch(ArgsException a){
 	argEx = a
@@ -81,19 +81,19 @@ assert argEx != null
 
 binding.variables.remove('cheese')
 
-norm(cheese: 123)
+prebind(cheese: 123)
 
 assert cheese == 123
 
 cheese = '456'
 
-norm(cheese: 123)
+prebind(cheese: 123)
 
 assert cheese == 456
 
 xxx = 'false'
 yyy = '123.456'
-norm(xxx: true, yyy: 50.0, zzz: false)
+prebind(xxx: true, yyy: 50.0, zzz: false)
 assert xxx == false
 assert yyy == 123.456
 assert zzz == false

@@ -45,12 +45,12 @@ assert y == 50
 String r = <~
 <g:bind b="9" c="11"/>
 <g:write value="${b+c}|"/>
-<g:norm b="${0}" c="${0}"/>
+<g:prebind b="${0}" c="${0}"/>
 <g:write value="${b+c}|"/>
 <g:unbind c="${13}">
 	<g:write value="${b+c}|"/>	
 	<g:bind b="31"/>
-	<g:norm b="${0}"/>
+	<g:prebind b="${0}"/>
 	<g:write value="${b+c}|"/>	
 </g:unbind>
 <g:write value="${b+c}|"/>

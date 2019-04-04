@@ -21,10 +21,10 @@ com.disney.groovity.tags.If
 com.disney.groovity.tags.Load
 com.disney.groovity.tags.Log
 com.disney.groovity.tags.Minify
-com.disney.groovity.tags.Norm
 com.disney.groovity.tags.Offer
 com.disney.groovity.tags.Param
 com.disney.groovity.tags.Parse
+com.disney.groovity.tags.Prebind
 com.disney.groovity.tags.Rebind
 com.disney.groovity.tags.Remove
 com.disney.groovity.tags.Run

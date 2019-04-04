@@ -534,8 +534,8 @@ public class TestGroovityTags {
 		run("/bind");
 	}
 	@Test
-	public void testNorm() throws Exception{
-		run("/norm");
+	public void testPrebind() throws Exception{
+		run("/prebind");
 	}
 	@Test
 	public void testRebind() throws Exception{

@@ -35,22 +35,22 @@ import com.disney.groovity.doc.Tag;
 
 import groovy.lang.Closure;
 /**
- * For each named attribute, if there is a value already bound with a given name, convert it to match the class of the norm if not-null;
- * If there is no bound value, apply the norm value to the binding as a default value, unless it is a class value, in which case an exception is thrown
+ * For each named attribute, if there is a value already bound with a given name, convert it to match the class of the prebound value if not-null; 
+ * If there is no bound value, apply the prebound value to the binding as a default value, unless it is a class value, in which case an exception is thrown as the prebind class condition failed
  * <p>
- * norm();
+ * prebind();
  * 
  *	<p>Sample
  *	<pre>
- *	norm(debug: false, timeout: 60, flags: ['green','blue'], transaction: null, out: Writer.class)
+ *	prebind(debug: false, timeout: 60, flags: ['green','blue'], transaction: null, out: Writer.class)
  *	</pre>	
  * @author Alex Vigdor
  */
 @Tag(
-	info = "For each named attribute, if there is a value already bound with a given name, convert it to match the class of the norm if not-null; If there is no bound value, apply the norm value to the binding as a default value, unless it is a class value, in which case an exception is thrown",
-	sample="norm(debug: false, timeout: 60, flags: ['green','blue'], transaction: null, out: Writer.class)"
+	info = "For each named attribute, if there is a value already bound with a given name, convert it to match the class of the prebound value if not-null; If there is no bound value, apply the prebound value to the binding as a default value, unless it is a class value, in which case an exception is thrown as the prebind class condition failed",
+	sample="prebind(debug: false, timeout: 60, flags: ['green','blue'], transaction: null, out: Writer.class)"
 )
-public class Norm implements Taggable {
+public class Prebind implements Taggable {
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	@Override
