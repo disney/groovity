@@ -137,8 +137,9 @@ private final List<DataModel> _doLookupIds(String type, String... ids){
 	Map<String, DataModel> cacheResults = (Map<String, DataModel>) cache(
 		name : type,
 		keys : ids,
-		ttl : typeConf.get('ttl'),
-		refresh : typeConf.get('refresh')
+		ttl : typeConf.get('ttl') ?: -1,
+		refresh : typeConf.get('refresh') ?: -1,
+		max : typeConf.get('max') ?: -1,
 	){ map ->
 		Map<String, Object> loadMap = (Map<String, Object>) map;
 		String sourceScriptName = typeConf.get('source').toString()
