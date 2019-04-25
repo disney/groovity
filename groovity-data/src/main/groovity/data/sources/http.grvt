@@ -42,7 +42,7 @@ static Map conf=[
 public void call(Map<String,Object> map, Map typeConf){
 	map.each{ entry ->
 		entry.value = async{
-			def result = http(url:getUrl(entry.key, typeConf), timeout:conf.get('http.timeout')){
+			def result = http(url:getUrl(entry.key, typeConf), timeout: getTimeout(typeConf)){
 				decorate(typeConf)
 				handler{ resp ->
 					HttpResponse httpResponse = (HttpResponse) resp
@@ -100,11 +100,19 @@ private void decorate(Map typeConf){
 }
 
 @CompileStatic
+def getTimeout(Map typeConf){
+	if(typeConf.containsKey('http.timeout')){
+		return typeConf.get('http.timeout')
+	}
+	conf.get('http.timeout')
+}
+
+@CompileStatic
 public String store(String id, StorePayload payload, Map typeConf){
 	def contentType = typeConf['http.contentType'] ?: 'application/json'
 	if(id){
 		//PUT
-		http(method:'PUT', url: getUrl(id, typeConf), data: payload.data, timeout:conf.get('http.timeout')){
+		http(method:'PUT', url: getUrl(id, typeConf), data: payload.data, timeout: getTimeout(typeConf)){
 			decorate(typeConf)
 			header(name:'Content-Type', value: contentType)
 			handler{ resp ->
@@ -121,7 +129,7 @@ public String store(String id, StorePayload payload, Map typeConf){
 			throw new RuntimeException("storing HTTP objects requires using a URL or providing 'http.baseUrl' in the type conf")
 		}
 		//POST
-		http(method:'POST', url: baseUrl, data: payload.data, timeout:conf.get('http.timeout')){
+		http(method:'POST', url: baseUrl, data: payload.data, timeout: getTimeout(typeConf)){
 			decorate(typeConf)
 			header(name:'Content-Type', value: contentType)
 			handler{ resp ->
@@ -146,7 +154,7 @@ public String store(String id, StorePayload payload, Map typeConf){
 
 @CompileStatic
 public void delete(String id, Map typeConf){
-	http(method:'DELETE', url: getUrl(id, typeConf), timeout:conf.get('http.timeout')){
+	http(method:'DELETE', url: getUrl(id, typeConf), timeout: getTimeout(typeConf)){
 		decorate(typeConf)
 		handler{ resp ->
 			HttpResponse httpResponse = (HttpResponse) resp
