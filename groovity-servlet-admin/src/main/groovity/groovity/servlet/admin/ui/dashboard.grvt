@@ -28,7 +28,7 @@ static web = [
 	auth : [ policy:{run('/groovity/servlet/admin/uiPolicy')}],
 	methods : ['GET','POST']
 ]
-static templates = ["compiler","docs","stats","threads","sockets","routes"]
+static templates = ["compiler","docs","stats","threads","caches","sockets","routes"]
 
 def template = binding.variables.templateName?:"compiler";
 

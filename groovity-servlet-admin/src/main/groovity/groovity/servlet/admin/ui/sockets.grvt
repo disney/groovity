@@ -62,7 +62,7 @@ socketStatus.each{ member, status ->
 
 <~   
 <div style="width:270px;float:left">
-	<form name="socketForm" id="socketForm" action="sockets" method="GET">
+	<form name="socketForm" id="socketForm" action="sockets" method="POST">
 	<input type="hidden" id="refresh" name="refresh" value="false" />
 	<strong>Hosts</strong>
 	<div style="padding:4px">

@@ -121,7 +121,7 @@ if(!selectedFiles){
 <meta http-equiv="refresh" content="2">
 </g:if>
 <div style="width:270px;float:left">
-	<form name="compilerForm" id="compilerForm" action="compiler" method="GET">
+	<form name="compilerForm" id="compilerForm" action="compiler" method="POST">
 	<input type="hidden" name="forceAll" id="forceAll" value="false" />
 	<strong>User</strong>
 	<div style="padding:4px">

@@ -47,20 +47,8 @@ public Map<ClusterMember, List<Map>> getCompilerStatus(List<ClusterMember> membe
 	}
 	cache(keys:members,name:"CompilerEventCache",refresh:"10",ttl:"120",{
 		//step 1, set up parallel async loading
-		map.each{ entry ->
-			def eventsUrl = "${load('/groovity/servlet/admin/lib/compilerSupport').getGroovitySystemUrl(entry.key)}/api/compiler";
-			entry.value = http(url:eventsUrl,async:true,timeout:10,{
-				load('/groovity/servlet/admin/lib/compilerSupport').signRequest();
-				handler({
-					if(httpResponse.statusLine.statusCode!=200){
-						Logger.getLogger("GroovyCompilerSupport").warning("Error response for groovity API ${eventsUrl}: ${httpResponse.statusLine}");
-						return null;
-						//throw new RuntimeException("Error issuing API call to ${eventsUrl} ${httpResponse.statusLine}: ${EntityUtils.toString(httpResponse.entity)}");
-					}
-					parse(value:httpResponse)
-				})
-			})
-		}	
+		load('/groovity/servlet/admin/lib/compilerSupport').fillCache(map, 'compiler')
+
 		//Step 2, wait for all results
 		map.each{ entry ->
 			try{
@@ -119,7 +107,7 @@ public void compileAll(String userName, Collection<ClusterMember> members,String
 public Map<ClusterMember,List<Map>> getStatistics(List<ClusterMember> members, boolean refresh, boolean reset){
 	if(reset){
 		members.each{ member ->
-			def statsUrl = "${load('/groovity/servlet/admin/lib/compilerSupport').getGroovitySystemUrl(member)}/api/stats?resetStats=true";
+			def statsUrl = "${getGroovitySystemUrl(member)}/api/stats?resetStats=true";
 			http(method:'POST',url:statsUrl,timeout:5,{signRequest()});
 			cacheRemove(key:member,name:"GroovityStatisticsCache")
 		}
@@ -130,81 +118,54 @@ public Map<ClusterMember,List<Map>> getStatistics(List<ClusterMember> members, b
 		}
 	}
 	cache(keys:members,name:"GroovityStatisticsCache",refresh:"10",ttl:"300",{
-		//step 1, set up parallel async loading
-		map.each{ entry ->
-			def eventsUrl = "${load('/groovity/servlet/admin/lib/compilerSupport').getGroovitySystemUrl(entry.key)}/api/stats";
-			entry.value = http(url:eventsUrl,async:true,timeout:5,{
-				load('/groovity/servlet/admin/lib/compilerSupport').signRequest();
-				handler({
-					if(httpResponse.statusLine.statusCode!=200){
-						Logger.getLogger("GroovyCompilerSupport").warning("Error response for groovity API ${eventsUrl}: ${httpResponse.statusLine}");
-						return null;
-						//throw new RuntimeException("Error issuing API call to ${eventsUrl} ${httpResponse.statusLine}: ${EntityUtils.toString(httpResponse.entity)}");
-					}
-					parse(value:httpResponse)
-				})
-			})
-		}
-		//Step 2, wait for all results
-		map.each{ entry ->
-			try{
-				entry.value = entry.value.get();
-			}
-			catch(Exception e){
-				entry.value = null;
-			}
-		}
+		load('/groovity/servlet/admin/lib/compilerSupport').fillCache(map, 'stats')
 	});
 }
 
 @Function(info="Get the compiler events for a list of cluster members")
 public Map<ClusterMember,Map> getDocs(List<ClusterMember> members){
 	cache(keys:members,name:"GroovityDocsCache",refresh:"10",ttl:"300",{
-		//step 1, set up parallel async loading
-		map.each{ entry ->
-			def eventsUrl = "${load('/groovity/servlet/admin/lib/compilerSupport').getGroovitySystemUrl(entry.key)}/api/docs";
-			entry.value = http(url:eventsUrl,async:true,timeout:5,{
-				load('/groovity/servlet/admin/lib/compilerSupport').signRequest();
-				handler({
-					if(httpResponse.statusLine.statusCode!=200){
-						Logger.getLogger("GroovyCompilerSupport").warning("Error response for groovity API ${eventsUrl}: ${httpResponse.statusLine}");
-						return null;
-						//throw new RuntimeException("Error issuing API call to ${eventsUrl} ${httpResponse.statusLine}: ${EntityUtils.toString(httpResponse.entity)}");
-					}
-					parse(value:httpResponse)
-				})
-			})
-		}
-		//Step 2, wait for all results
-		map.each{ entry ->
-			try{
-				entry.value = entry.value.get();
-			}
-			catch(Exception e){
-				entry.value = null;
-			}
-		}
+		load('/groovity/servlet/admin/lib/compilerSupport').fillCache(map, 'docs')
 	});
 }
 
 @Function(info="Get the thread state for a list of cluster members")
 public Map<ClusterMember,Map> getThreads(List<ClusterMember> members){
 	cache(keys:members,name:"GroovityThreadsCache",refresh:"10",ttl:"60",{
-		//step 1, set up parallel async loading
-		map.each{ entry ->
-			def eventsUrl = "${load('/groovity/servlet/admin/lib/compilerSupport').getGroovitySystemUrl(entry.key)}/api/threads";
-			entry.value = http(url:eventsUrl,async:true,timeout:5,{
-				load('/groovity/servlet/admin/lib/compilerSupport').signRequest();
-				handler({
-					if(httpResponse.statusLine.statusCode!=200){
-						Logger.getLogger("GroovyCompilerSupport").warning("Error response for groovity API ${eventsUrl}: ${httpResponse.statusLine}");
-						return null;
-						//throw new RuntimeException("Error issuing API call to ${eventsUrl} ${httpResponse.statusLine}: ${EntityUtils.toString(httpResponse.entity)}");
-					}
-					parse(value:httpResponse)
+		load('/groovity/servlet/admin/lib/compilerSupport').fillCache(map, 'threads')
+	});
+}
+
+public void clearCache(List<ClusterMember> members, String scriptName, String cacheName){
+	await{
+		members.each{ member ->
+			async{
+				def posturl = "${getGroovitySystemUrl(member)}/api/caches";
+				http(method:'POST',url:posturl,timeout:5,data: [script: scriptName, cacheName: cacheName],{
+					signRequest();
+					handler({
+						if(httpResponse.statusLine.statusCode!=200){
+							log(warn: "Error response for groovity API ${eventsUrl}: ${httpResponse.statusLine}");
+							return null;
+						}
+						parse(value: httpResponse)
+					})
 				})
-			})
+				cacheRemove(key:member,name:"GroovityCachesCache")
+			}
 		}
+	}
+}
+
+@Function(info="Get the caches state for a list of cluster members")
+public Map<ClusterMember,Map> getCaches(List<ClusterMember> members, boolean refresh){
+	if(refresh){
+		members.each{ member ->
+			cacheRemove(key:member,name:"GroovityCachesCache")
+		}
+	}
+	cache(keys:members,name:"GroovityCachesCache",refresh:"10",ttl:"60",{
+		load('/groovity/servlet/admin/lib/compilerSupport').fillCache(map, 'caches')
 	});
 }
 
@@ -216,22 +177,28 @@ public Map<ClusterMember,Map> getSockets(List<ClusterMember> members, boolean re
 		}
 	}
 	cache(keys:members,name:"GroovitySocketsCache",refresh:"10",ttl:"60",{
-		//step 1, set up parallel async loading
-		map.each{ entry ->
-			def eventsUrl = "${load('/groovity/servlet/admin/lib/compilerSupport').getGroovitySystemUrl(entry.key)}/api/sockets";
-			entry.value = http(url:eventsUrl,async:true,timeout:5,{
-				load('/groovity/servlet/admin/lib/compilerSupport').signRequest();
-				handler({
-					if(httpResponse.statusLine.statusCode!=200){
-						Logger.getLogger("GroovyCompilerSupport").warning("Error response for groovity API ${eventsUrl}: ${httpResponse.statusLine}");
-						return null;
-						//throw new RuntimeException("Error issuing API call to ${eventsUrl} ${httpResponse.statusLine}: ${EntityUtils.toString(httpResponse.entity)}");
-					}
-					parse(value:httpResponse)
-				})
-			})
-		}
+		load('/groovity/servlet/admin/lib/compilerSupport').fillCache(map, 'sockets')
 	});
+}
+
+def fillCache(Map loader, String api){
+	loader.each{ entry ->
+		entry.value = makeApiCall(entry.key, api)
+	}
+}
+
+def makeApiCall(ClusterMember member, String api){
+	def eventsUrl = "${getGroovitySystemUrl(member)}/api/${api}";
+	http(url:eventsUrl,async:true,timeout:5,{
+		signRequest();
+		handler({
+			if(httpResponse.statusLine.statusCode!=200){
+				log(warn: "Error response for groovity API ${eventsUrl}: ${httpResponse.statusLine}");
+				return null;
+			}
+			parse(value: httpResponse)
+		})
+	})
 }
 
 @Function(info="check whether any hosts are known to be busy compiling")

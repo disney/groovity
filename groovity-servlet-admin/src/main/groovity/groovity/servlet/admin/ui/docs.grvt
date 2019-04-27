@@ -169,7 +169,7 @@ classTemplate = { cl ->
 
 <~
 <div style="width:200px;float:left">
-	<form name="docsForm" id="docsForm" action="docs" method="GET">
+	<form name="docsForm" id="docsForm" action="docs" method="POST">
 	<strong>Hosts</strong>
 	<div style="padding:4px">
 		<select name="selectedHosts" multiple="multiple" onchange="document.docsForm.submit()">

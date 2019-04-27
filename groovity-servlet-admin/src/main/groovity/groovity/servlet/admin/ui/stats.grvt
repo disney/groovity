@@ -25,6 +25,7 @@ static args = [
 	selectedHosts:new String[0],
 	key:null,
 	refresh:false,
+	reset:false,
 	sortBy:"gross"
 ]
 
@@ -38,10 +39,6 @@ if(!selectedHosts){
 	selectedHosts = members.collect{ it.uuid.toString() }
 }
 
-boolean reset = false;
-if(request.method=="POST"){
-	reset=true;
-}
 statistics = compilerSupport.getStatistics(members.findAll{ selectedHosts.contains(it.uuid.toString()) }, refresh, reset);
 
 //build up the aggregates unsorted at first, sort later
@@ -93,9 +90,10 @@ if(sortedStats.size() > 0){
 }
 <~   
 <div style="width:35%;float:left">
-	<form name="statsForm" id="statsForm" action="stats" method="GET">
+	<form name="statsForm" id="statsForm" action="stats" method="POST">
 	<input type="hidden" id="key" name="key" value="${key}" />
 	<input type="hidden" id="refresh" name="refresh" value="false" />
+	<input type="hidden" id="reset" name="reset" value="false" />
 	<strong>Hosts</strong>
 	<div style="padding:4px">
 		<select name="selectedHosts" multiple="multiple" onchange="document.statsForm.submit()">
@@ -110,7 +108,7 @@ if(sortedStats.size() > 0){
 	</div>
 	<div style="padding:4px">
 		<input type="button" value="Refresh" onclick="document.statsForm.refresh.value='true';document.statsForm.submit()">
-		<button type="submit" formmethod="post" >Reset stats</button>
+		<input type="button" value="Reset stats" onclick="document.statsForm.reset.value='true';document.statsForm.submit()">
 	</div>
 	<strong>Most Expensive</strong> sorted by
 		<select name="sortBy" onchange="document.statsForm.submit()">

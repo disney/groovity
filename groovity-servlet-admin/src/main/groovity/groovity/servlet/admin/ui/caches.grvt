@@ -1,0 +1,168 @@
+/*******************************************************************************
+ * © 2019 Disney | ABC Television Group
+ *
+ * Licensed under the Apache License, Version 2.0 (the "Apache License")
+ * with the following modification; you may not use this file except in
+ * compliance with the Apache License and the following modification to it:
+ * Section 6. Trademarks. is deleted and replaced with:
+ *
+ * 6. Trademarks. This License does not grant permission to use the trade
+ *     names, trademarks, service marks, or product names of the Licensor
+ *     and its affiliates, except as required to comply with Section 4(c) of
+ *     the License and to reproduce the content of the NOTICE file.
+ *
+ * You may obtain a copy of the Apache License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the Apache License with the above modification is
+ * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the Apache License for the specific
+ * language governing permissions and limitations under the Apache License.
+ *******************************************************************************/
+static args = [
+	selectedHosts:new String[0],
+	refresh:false,
+	scriptName:'',
+	cacheName:''
+]
+
+load '/groovity/servlet/admin/lib/compilerSupport'
+
+@Field clusterClient = run('/groovity/servlet/admin/lib/clusterClient')
+
+members = new ArrayList(clusterClient.clusterProvider.members)
+
+if(!selectedHosts){
+	selectedHosts = members.collect{ it.uuid.toString() }
+}
+
+selectedMembers = members.findAll{ selectedHosts.contains(it.uuid.toString()) }
+
+if(request.method == 'POST' && scriptName && cacheName){
+	compilerSupport.clearCache(selectedMembers, scriptName, cacheName)
+}
+
+cacheStatus = compilerSupport.getCaches(selectedMembers, refresh);
+
+scripts = []
+
+cacheStatus.each{ member, caches ->
+	caches.each{ cache ->
+		sm = scripts.find{ it.script == cache.script }
+		if(sm==null){
+			sm =[ script: cache.script, caches: [], count: 0] 
+			scripts.add(sm)
+		}
+		cm = sm.caches.find{ it.name == cache.name }
+		if(cm==null){
+			cm = [name: cache.name, misses: 0, hits: 0, count: 0, max: 0]
+			sm.caches.add(cm)
+		}
+		cm.misses += cache.misses
+		cm.hits += cache.hits
+		cm.max += cache.max
+		cm.count += cache.count
+		sm.count += cache.count
+	}
+}
+
+
+scripts.each{ script ->
+	script.requests = 0
+	script.caches.each{ cache ->
+		cache.requests = cache.hits + cache.misses
+		cache.hitRatio = cache.requests ? cache.hits/((double)cache.requests) : 0.0
+		cache.fullRatio = cache.max > 0 ? cache.count/((double)cache.max) : 0.0
+		script.requests += cache.requests
+	}
+	script.caches.sort{ -it.requests }
+}
+scripts.sort{ -it.requests }
+
+selectedScript = scripts.find{ it.script == scriptName }
+
+<~
+<div style="width:35%;float:left">
+	<form name="cachesForm" id="cachesForm" action="caches" method="POST">
+	<input type="hidden" id="scriptName" name="scriptName" value="${scriptName}" />
+	<input type="hidden" id="refresh" name="refresh" value="false" />
+	<strong>Hosts</strong>
+	<div style="padding:4px">
+		<select name="selectedHosts" multiple="multiple" onchange="document.cachesForm.submit()">
+			<g:each var="host" in="${members}">
+				<option value="${host.uuid}"
+				<g:if test="${selectedHosts.contains(host.uuid.toString())}">
+					selected="selected"
+				</g:if>
+				>${host.address.hostName}:${host.port}</option>
+			</g:each>
+		</select>
+	</div>
+	<div style="padding:4px">
+		<input type="button" value="Refresh" onclick="document.cachesForm.refresh.value='true';document.cachesForm.submit()">
+	</div>
+	<div id="scriptList" style="position:relative;padding:2px;font-size:0.8em;height:75vh;overflow-y:auto;overflow-x:hidden">
+		<g:set var="percentNumeric" value="${false}" />
+		<g:each var="script" in="${scripts}">
+			<g:set var="percentLabel">
+				<a onclick="document.cachesForm.scriptName.value='${script.script}';document.cachesForm.submit();" href="#"
+					<g:if test="${script.script==scriptName}">
+						class="selectedStatKey"
+					</g:if>
+				><g:write value="${script.script}" escape="html"/></a>
+			</g:set>
+			<g:set var="percentValue" value="${scripts[0].count ? script.count/scripts[0].count : 0}" />
+			<div
+				<g:if test="${script.script==scriptName}">
+					id="selectedStatKey"
+				</g:if>
+			>
+			<g:run path="/groovity/servlet/admin/lib/percentBar" />
+			</div>
+		</g:each>
+	</div>
+	</form>
+</div>
+<div style="margin-left:36%">
+	<g:if test="${selectedScript?.requests}">
+		<strong style="font-size:1.38em"><g:write value="${scriptName}" escape="html"/></strong>
+		<br/>
+		<div style="font-size:0.9em;">
+			<g:set var="percentNumeric" value="${false}" />
+			<g:set var="percentFG" value="#aaddff" />
+			<g:each var="cache" in="${selectedScript.caches}">
+				<g:set var="percentLabel">
+					<div style="float:right">
+						${cache.hits + cache.misses} requests
+					</div>
+					<g:write value="${cache.name}" escape="html"/>
+				</g:set>
+				<g:set var="percentValue" value="${cache.requests/selectedScript.requests}" />
+				<g:run path="/groovity/servlet/admin/lib/percentBar" />
+				<div style="padding:4px 12px;">
+					<form method="POST" action="caches">
+						<input type="hidden" name="script" value="${scriptName}"/>
+						<input type="hidden" name="cacheName" value="${cache.name}"/>
+						<input type="hidden" id="scriptName" name="scriptName" value="${scriptName}" />
+						<g:each var="host" in="${selectedMembers}">
+							<input type="hidden" name="selectedHosts" value="${host.uuid}" />
+						</g:each>
+						<strong>${sprintf('%.1f%%',[cache.hitRatio*100])}</strong> hit (${cache.hits} hit ${cache.misses} miss)
+						<div style="float:right;display:flex;align-items: center;">
+							<g:if test="${cache.max > 0}">
+								<strong>${sprintf('%.1f%%',[cache.fullRatio*100])}</strong> &nbsp;full (${cache.count} cached max ${cache.max})
+							</g:if>
+							<g:else>
+								<strong>${cache.count}</strong> &nbsp;cached
+							</g:else>
+							<input type="submit" value="Clear" style="margin:0px 12px">
+						</div>
+					</form>
+				</div>
+			</g:each>
+		</div>
+	</g:if>
+</div>
+~>
