@@ -110,13 +110,19 @@ public class GroovityServletContainer {
         context.setResourceBase(webapp.getAbsolutePath());
         context.setContextPath("/");
         context.setClassLoader(new WebAppClassLoader(classLoader, context));
-        context.setAttribute("org.eclipse.jetty.server.webapp.ContainerIncludeJarPattern", ".*/.+\\.jar$|.*/classes/.*");
         URLClassLoader ucl = (URLClassLoader) classLoader;
+        boolean hasServlet = false;
         for(URL url: ucl.getURLs()){
         	File file = new File(url.getFile());
         	if(file.exists()){
         		context.getMetaData().addWebInfJar(Resource.newResource(file));
+				if(file.getName().startsWith("groovity-servlet-2")) {
+					hasServlet = true;
+				}
         	}
+        }
+        if(!hasServlet) {
+			context.setAttribute("org.eclipse.jetty.server.webapp.ContainerIncludeJarPattern", ".*/groovity-servlet-2.+\\.jar$");
         }
         server.setHandler(context);
         //this is a patch to prevent harmless but annoying classloader issues at shutdown
@@ -147,7 +153,9 @@ public class GroovityServletContainer {
 			if(delete){
 				webapp.delete();
 			}
-			groovity.destroy();
+			if(groovity!=null) {
+				groovity.destroy();
+			}
 			Properties sysProps = System.getProperties();
 			for(Entry<String, String> entry: revertProperties.entrySet()){
 				if(entry.getValue()==null){

@@ -54,11 +54,11 @@ public void call(Map<String,Object> map, Map conf){
 			if(locator.orderBy!=null){
 				queryBuilder.append("ORDER BY ").append(locator.orderBy).append(" ")
 			}
-			if(locator.offset!=null){
-				queryBuilder.append("OFFSET ").append(locator.offset).append(" ")
-			}
 			if(locator.limit!=null){
 				queryBuilder.append("LIMIT ").append(locator.limit).append(" ")
+			}
+			if(locator.offset!=null){
+				queryBuilder.append("OFFSET ").append(locator.offset).append(" ")
 			}
 		}
 		entry.value = async{

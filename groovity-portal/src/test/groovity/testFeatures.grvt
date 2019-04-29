@@ -118,7 +118,7 @@ catch(IOException e){
 	wsError2 = e
 }
 
-assert wsError2?.cause?.message == '403 Origin not allowed'
+assert wsError2?.cause?.message =~ /403 Origin not allowed/
 
 def wsClient = ws(url:eventSocketUrl){
 	header(name:'Origin',value:host)
