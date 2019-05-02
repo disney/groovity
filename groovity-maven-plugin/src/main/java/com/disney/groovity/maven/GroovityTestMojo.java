@@ -98,6 +98,12 @@ public class GroovityTestMojo extends AbstractGroovityMojo {
 	private File groovityTestDirectory;
 	@Parameter(defaultValue = "-1")
 	private String port;
+	@Parameter(defaultValue="-1")
+	private String securePort;
+	@Parameter
+	private String secureKeyStoreLocation;
+	@Parameter
+	private String secureKeyStorePassword;
 	@Parameter(property = "path")
 	private String path;
 	@Parameter(property = "interactive")
@@ -129,6 +135,9 @@ public class GroovityTestMojo extends AbstractGroovityMojo {
 			ClassLoader testLoader = createClassLoader(ClassLoaderScope.TEST);
 			GroovityServletContainerBuilder builder = new GroovityServletContainerBuilder()
 					.setPort(Integer.valueOf(port))
+					.setSecurePort(Integer.valueOf(securePort))
+					.setSecureKeyStoreLocation(secureKeyStoreLocation)
+					.setSecureKeyStorePassword(secureKeyStorePassword)
 					.setWebappDirectory(new File(project.getBasedir(), "src/main/webapp")).setClassLoader(testLoader);
 			if (groovitySourceDirectory != null && groovitySourceDirectory.exists()) {
 				builder.addSourceLocation(groovitySourceDirectory.toURI(), true);

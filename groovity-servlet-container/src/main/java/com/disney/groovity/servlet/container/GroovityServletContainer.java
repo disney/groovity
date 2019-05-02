@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.security.CodeSource;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -40,10 +41,13 @@ import java.util.logging.Logger;
 
 import org.eclipse.jetty.server.HttpConfiguration;
 import org.eclipse.jetty.server.HttpConnectionFactory;
+import org.eclipse.jetty.server.SecureRequestCustomizer;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
+import org.eclipse.jetty.server.SslConnectionFactory;
 import org.eclipse.jetty.util.BlockingArrayQueue;
 import org.eclipse.jetty.util.resource.Resource;
+import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.eclipse.jetty.webapp.WebAppClassLoader;
 import org.eclipse.jetty.webapp.WebAppContext;
 
@@ -71,7 +75,6 @@ import groovy.lang.Binding;
  */
 public class GroovityServletContainer {
 	final static Logger log = Logger.getLogger(GroovityServletContainer.class.getSimpleName());
-	final private int port;
 	final private File webapp;
 	final private ClassLoader classLoader;
 	final private boolean delete;
@@ -83,8 +86,7 @@ public class GroovityServletContainer {
 	WebAppContext context;
 	Groovity groovity;
 	
-	protected GroovityServletContainer(int port, File webapp, ClassLoader classLoader, boolean delete, List<String> consoleSourceLocations, Map<String,String> revertProperties) throws IOException{
-		this.port=port;
+	protected GroovityServletContainer(int port, int securePort, SslContextFactory.Server sslContextFactory, File webapp, ClassLoader classLoader, boolean delete, List<String> consoleSourceLocations, Map<String,String> revertProperties) throws IOException{
 		this.webapp=webapp;
 		this.classLoader=classLoader;
 		this.delete=delete;
@@ -99,44 +101,58 @@ public class GroovityServletContainer {
 		classlist.addBefore("org.eclipse.jetty.webapp.JettyWebXmlConfiguration",
 				"org.eclipse.jetty.annotations.AnnotationConfiguration");
 		
-		HttpConfiguration hc = new HttpConfiguration();
-		hc.setSendServerVersion(false);
-		HttpConnectionFactory factory = new HttpConnectionFactory(hc);
-		//start up jetty server
-		ServerConnector connector = new ServerConnector(server, factory);
-        connector.setPort(port);
-        server.addConnector(connector);
+		if (port > 0) {
+			HttpConfiguration hc = new HttpConfiguration();
+			hc.setSendServerVersion(false);
+			HttpConnectionFactory factory = new HttpConnectionFactory(hc);
+			ServerConnector connector = new ServerConnector(server, factory);
+			connector.setPort(port);
+			server.addConnector(connector);
+		}
+		if (securePort > 0) {
+			HttpConfiguration hc = new HttpConfiguration();
+			hc.setSendServerVersion(false);
+			hc.addCustomizer(new SecureRequestCustomizer());
+			hc.setSecurePort(securePort);
+			hc.setSecureScheme("https");
+			ServerConnector httpsConnector = new ServerConnector(server,
+					new SslConnectionFactory(sslContextFactory, "http/1.1"), new HttpConnectionFactory(hc));
+			httpsConnector.setPort(securePort);
+			server.addConnector(httpsConnector);
+		}
         context = new WebAppContext();
         context.setResourceBase(webapp.getAbsolutePath());
         context.setContextPath("/");
-        context.setClassLoader(new WebAppClassLoader(classLoader, context));
-        URLClassLoader ucl = (URLClassLoader) classLoader;
-        boolean hasServlet = false;
-        for(URL url: ucl.getURLs()){
-        	File file = new File(url.getFile());
-        	if(file.exists()){
-        		context.getMetaData().addWebInfJar(Resource.newResource(file));
-				if(file.getName().startsWith("groovity-servlet-2")) {
+		context.setClassLoader(new WebAppClassLoader(classLoader, context));
+		CodeSource servletSource = GroovityServlet.class.getProtectionDomain().getCodeSource();
+		URL su = servletSource != null ? servletSource.getLocation() : null;
+		URLClassLoader ucl = (URLClassLoader) classLoader;
+		boolean hasServlet = false;
+		for (URL url : ucl.getURLs()) {
+			File file = new File(url.getFile());
+			if (file.exists()) {
+				context.getMetaData().addWebInfJar(Resource.newResource(file));
+				if (url.equals(su)) {
 					hasServlet = true;
 				}
-        	}
-        }
-        if(!hasServlet) {
-			context.setAttribute("org.eclipse.jetty.server.webapp.ContainerIncludeJarPattern", ".*/groovity-servlet-2.+\\.jar$");
-        }
-        server.setHandler(context);
-        //this is a patch to prevent harmless but annoying classloader issues at shutdown
-  		BlockingArrayQueue<String> baq = new BlockingArrayQueue<>();
-  		baq.add("test");
-  		baq.listIterator().hasNext();
+			}
+		}
+		if (!hasServlet && su != null) {
+			context.setAttribute("org.eclipse.jetty.server.webapp.ContainerIncludeJarPattern", su.toString());
+		}
+		server.setHandler(context);
+		// this is a patch to prevent harmless but annoying classloader issues at shutdown
+		BlockingArrayQueue<String> baq = new BlockingArrayQueue<>();
+		baq.add("test");
+		baq.listIterator().hasNext();
   		//end patch
 	}
 	
 	public void start() throws Exception{
-		if(!started){
-			started=true;
+		if (!started) {
+			started = true;
 			server.start();
-			//context.getServletHandler().dumpStdErr();        
+			// context.getServletHandler().dumpStdErr();
 			groovity = (Groovity) context.getServletContext().getAttribute(GroovityServlet.SERVLET_CONTEXT_GROOVITY_INSTANCE);
 		}
 	}

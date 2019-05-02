@@ -37,11 +37,29 @@ public class GroovityJarRunner {
 	public static void main(String[] args) {
 		try{
 			int port = -1;
+			int securePort = -1;
+			String keyStoreLocation = null;
+			String keyStorePassword = null;
 			if(args.length>0){
 				port = Integer.parseInt(args[0]);
+				if(args.length>1) {
+					securePort = Integer.parseInt(args[1]);
+					if(args.length>2) {
+						keyStoreLocation = args[2];
+						if(args.length > 3) {
+							keyStorePassword = args[3];
+						}
+						else {
+							keyStorePassword = "";
+						}
+					}
+				}
 			}
 			GroovityServletContainerBuilder groovityServletContainerBuilder = new GroovityServletContainerBuilder()
-					.setPort(port);
+					.setPort(port)
+					.setSecurePort(Integer.valueOf(securePort))
+					.setSecureKeyStoreLocation(keyStoreLocation)
+					.setSecureKeyStorePassword(keyStorePassword);
 			GroovityServletContainer container = groovityServletContainerBuilder.build();
 			container.start();
 			try{

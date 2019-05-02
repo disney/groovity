@@ -27,10 +27,17 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
+import java.security.KeyStore;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import org.eclipse.jetty.util.ssl.SslContextFactory;
+
+import com.disney.uriparcel.URIParcel;
 
 /**
  * An embedded groovity servlet container builder
@@ -42,11 +49,17 @@ import java.util.Map;
  *
  */
 public class GroovityServletContainerBuilder {
+	private static Logger log = Logger.getLogger(GroovityServletContainerBuilder.class.getName());
 	private List<String> sourceLocations = new ArrayList<>();
 	private List<String> consoleSourceLocations = new ArrayList<>();
 	private File webapp = null;
 	private ClassLoader classLoader = null;
 	private int port = 9880;
+	private int securePort = 0;
+	private SslContextFactory.Server sslContextFactory;
+	private KeyStore secureKeyStore;
+	private String secureKeyStoreLocation;
+	private String secureKeyStorePassword;
 	private File jarDirectory = null;
 	private String adminPassword = null;
 	private String clusterSecret = null;
@@ -68,7 +81,7 @@ public class GroovityServletContainerBuilder {
 		return this;
 	}
 	public GroovityServletContainerBuilder setPort(int port){
-		if(port > 0) {
+		if(port >= 0) {
 			this.port=port;
 		}
 		return this;
@@ -89,7 +102,28 @@ public class GroovityServletContainerBuilder {
 		this.propsFile=propsFile;
 		return this;
 	}
-	
+	public GroovityServletContainerBuilder setSecurePort(int securePort) {
+		if(securePort >= 0) {
+			this.securePort = securePort;
+		}
+		return this;
+	}
+	public GroovityServletContainerBuilder setSecureKeyStoreLocation(String secureKeyStoreLocation) {
+		this.secureKeyStoreLocation = secureKeyStoreLocation;
+		return this;
+	}
+	public GroovityServletContainerBuilder setSecureKeyStorePassword(String secureKeyStorePassword) {
+		this.secureKeyStorePassword = secureKeyStorePassword;
+		return this;
+	}
+	public GroovityServletContainerBuilder setSecureKeyStore(KeyStore secureKeyStore) {
+		this.secureKeyStore = secureKeyStore;
+		return this;
+	}
+	public GroovityServletContainerBuilder setSslContextFactory(SslContextFactory.Server sslContextFactory) {
+		this.sslContextFactory = sslContextFactory;
+		return this;
+	}
 	private void revertableSet(String key, String value, Map<String,String> revert){
 		revert.put(key,System.getProperty(key));
 		System.setProperty(key, value);
@@ -129,7 +163,43 @@ public class GroovityServletContainerBuilder {
 		if(System.getProperty("groovity.port")==null){
 			revertableSet("groovity.port", String.valueOf(port), revertProperties);
 		}
-        GroovityServletContainer container = new GroovityServletContainer(port,webapp,classLoader,delete,consoleSourceLocations,revertProperties);
+		if(securePort>0) {
+			if(sslContextFactory == null) {
+				sslContextFactory = new SslContextFactory.Server();
+			}
+			if(secureKeyStoreLocation == null) {
+				secureKeyStoreLocation = System.getProperty("groovity.secure.keystore.location");
+			}
+			if(secureKeyStoreLocation!=null) {
+				if(secureKeyStorePassword == null) {
+					secureKeyStorePassword = System.getProperty("groovity.secure.keystore.password");
+				}
+				Map<String, Object> kc = new HashMap<>();
+				kc.put("password", secureKeyStorePassword);
+				try {
+					URI secureKeystoreURI = new URI(secureKeyStoreLocation);
+					if(!secureKeystoreURI.isAbsolute()) {
+						secureKeystoreURI = new File(secureKeyStoreLocation).toURI();
+					}
+					URIParcel<KeyStore> myParcel = new URIParcel<KeyStore>(KeyStore.class, secureKeystoreURI, kc);
+					secureKeyStore = myParcel.call();
+				} catch (Exception e) {
+					log.log(Level.SEVERE,"Error loading keystore for groovity secure port",e);
+				}
+			}
+			if(secureKeyStore == null) {
+				log.warning("Cannot configure SSL without a keystore");
+				securePort = -1;
+			}
+			else {
+				sslContextFactory.setKeyStore(secureKeyStore);
+				sslContextFactory.setKeyManagerPassword(secureKeyStorePassword);
+			}
+		}
+		if(System.getProperty("groovity.secure.port")==null){
+			revertableSet("groovity.secure.port", String.valueOf(securePort), revertProperties);
+		}
+        GroovityServletContainer container = new GroovityServletContainer(port,securePort,sslContextFactory,webapp,classLoader,delete,consoleSourceLocations,revertProperties);
 		return container;
 	}
 }
