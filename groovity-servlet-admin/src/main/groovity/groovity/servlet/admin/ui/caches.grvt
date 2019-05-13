@@ -82,7 +82,10 @@ scripts.each{ script ->
 scripts.sort{ -it.requests }
 
 selectedScript = scripts.find{ it.script == scriptName }
-
+if(selectedScript == null && !scripts.isEmpty()){
+	selectedScript = scripts.first()
+	scriptName = selectedScript.script
+}
 <~
 <div style="width:35%;float:left">
 	<form name="cachesForm" id="cachesForm" action="caches" method="POST">

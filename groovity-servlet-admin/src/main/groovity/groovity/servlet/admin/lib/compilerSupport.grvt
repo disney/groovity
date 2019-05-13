@@ -169,6 +169,18 @@ public Map<ClusterMember,Map> getCaches(List<ClusterMember> members, boolean ref
 	});
 }
 
+@Function(info="Get the channels state for a list of cluster members")
+public Map<ClusterMember,Map> getChannels(List<ClusterMember> members, boolean refresh){
+	if(refresh){
+		members.each{ member ->
+			cacheRemove(key:member,name:"GroovityChannelsCache")
+		}
+	}
+	cache(keys:members,name:"GroovityChannelsCache",refresh:"10",ttl:"60",{
+		load('/groovity/servlet/admin/lib/compilerSupport').fillCache(map, 'channels')
+	});
+}
+
 @Function(info="Get the thread state for a list of cluster members")
 public Map<ClusterMember,Map> getSockets(List<ClusterMember> members, boolean refresh){
 	if(refresh){

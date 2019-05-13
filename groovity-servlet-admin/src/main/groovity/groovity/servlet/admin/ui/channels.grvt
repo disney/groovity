@@ -1,0 +1,211 @@
+/*******************************************************************************
+ * © 2019 Disney | ABC Television Group
+ *
+ * Licensed under the Apache License, Version 2.0 (the "Apache License")
+ * with the following modification; you may not use this file except in
+ * compliance with the Apache License and the following modification to it:
+ * Section 6. Trademarks. is deleted and replaced with:
+ *
+ * 6. Trademarks. This License does not grant permission to use the trade
+ *     names, trademarks, service marks, or product names of the Licensor
+ *     and its affiliates, except as required to comply with Section 4(c) of
+ *     the License and to reproduce the content of the NOTICE file.
+ *
+ * You may obtain a copy of the Apache License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the Apache License with the above modification is
+ * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied. See the Apache License for the specific
+ * language governing permissions and limitations under the Apache License.
+ *******************************************************************************/
+import java.time.LocalDateTime
+ 
+static args = [
+	selectedHosts:new String[0],
+	refresh:false,
+	scriptName:null
+]
+
+load '/groovity/servlet/admin/lib/compilerSupport'
+load '/groovity/servlet/admin/lib/date'
+
+@Field clusterClient = run('/groovity/servlet/admin/lib/clusterClient')
+
+members = new ArrayList(clusterClient.clusterProvider.members)
+
+if(!selectedHosts){
+	selectedHosts = members.collect{ it.uuid.toString() }
+}
+
+selectedMembers = members.findAll{ selectedHosts.contains(it.uuid.toString()) }
+
+channelStatus = compilerSupport.getChannels(selectedMembers, refresh);
+
+scripts = []
+
+channelStatus.each{ member, channels ->
+	channels.each{ channel ->
+		sm = scripts.find{ it.script == channel.script }
+		if(sm==null){
+			sm =[ script: channel.script, channels: [], processed: 0] 
+			scripts.add(sm)
+		}
+		cm = sm.channels.find{ it.channel == channel.channel }
+		if(cm==null){
+			cm = [channel: channel.channel, capacity: 0, queued: 0, processed: 0, dropped: 0, evicted: 0, totalProcessing: 0, meanProcessing: 0.0, maxProcessing: 0, lastProcessing: 0, firstMessage: null, lastMessage: null]
+			sm.channels.add(cm)
+		}
+		cm.capacity += channel.capacity
+		cm.queued += channel.queued
+		cm.dropped += channel.dropped
+		cm.evicted += channel.evicted
+		cm.processed += channel.processed
+		sm.processed += channel.processed
+		cm.totalProcessing += channel.totalProcessing
+		if(channel.meanProcessing){
+			cm.meanProcessing += (channel.meanProcessing/selectedMembers.size())
+		}
+		if(channel.maxProcessing > cm.maxProcessing){
+			cm.maxProcessing = channel.maxProcessing
+		}
+		if(channel.firstMessage){
+			def fm = channel.firstMessage
+			if(cm.firstMessage == null || fm < cm.firstMessage){
+				cm.firstMessage = fm
+			}
+		}
+		if(channel.lastMessage){
+			def lm = channel.lastMessage
+			if(cm.lastMessage == null || lm > cm.lastMessage){
+				cm.lastMessage = lm
+				cm.lastProcessing = channel.lastProcessing
+			}
+		}
+	}
+}
+
+
+scripts.sort{ -it.processed }
+
+selectedScript = scripts.find{ it.script == scriptName }
+
+if(selectedScript == null && !scripts.isEmpty()){
+	selectedScript = scripts.first()
+	scriptName = selectedScript.script
+}
+
+<~
+
+<style type="text/css">
+	#channelstats td { padding:0px 6px 4px 6px;}
+</style>
+<div style="width:35%;float:left">
+	<form name="channelsForm" id="channelsForm" action="channels" method="POST">
+	<input type="hidden" id="scriptName" name="scriptName" value="${scriptName}" />
+	<input type="hidden" id="refresh" name="refresh" value="false" />
+	<strong>Hosts</strong>
+	<div style="padding:4px">
+		<select name="selectedHosts" multiple="multiple" onchange="document.channelsForm.submit()">
+			<g:each var="host" in="${members}">
+				<option value="${host.uuid}"
+				<g:if test="${selectedHosts.contains(host.uuid.toString())}">
+					selected="selected"
+				</g:if>
+				>${host.address.hostName}:${host.port}</option>
+			</g:each>
+		</select>
+	</div>
+	<div style="padding:4px">
+		<input type="button" value="Refresh" onclick="document.channelsForm.refresh.value='true';document.channelsForm.submit()">
+	</div>
+	<div id="scriptList" style="position:relative;padding:2px;font-size:0.8em;height:75vh;overflow-y:auto;overflow-x:hidden">
+		<g:set var="percentNumeric" value="${false}" />
+		<g:each var="script" in="${scripts}">
+			<g:set var="percentLabel">
+				<a onclick="document.channelsForm.scriptName.value='${script.script}';document.channelsForm.submit();" href="#"
+					<g:if test="${script.script==scriptName}">
+						class="selectedStatKey"
+					</g:if>
+				><g:write value="${script.script}" escape="html"/></a>
+			</g:set>
+			<g:set var="percentValue" value="${scripts[0].processed ? script.processed/scripts[0].processed : 0}" />
+			<div
+				<g:if test="${script.script==scriptName}">
+					id="selectedStatKey"
+				</g:if>
+			>
+			<g:run path="/groovity/servlet/admin/lib/percentBar" />
+			</div>
+		</g:each>
+	</div>
+	</form>
+</div>
+<div style="margin-left:36%">
+		<strong style="font-size:1.38em"><g:write value="${scriptName}" escape="html"/></strong>
+		<br/>
+		<div style="font-size:0.9em;" id="channelstats">
+			<g:set var="percentNumeric" value="${false}" />
+			<g:set var="percentFG" value="#aaddff" />
+			<g:each var="channel" in="${selectedScript.channels}">
+				<g:set var="percentLabel">
+					<div style="float:right">
+						${channel.processed} processed
+					</div>
+					<g:write value="${channel.channel}" escape="html"/>
+				</g:set>
+				<g:set var="percentValue" value="${ selectedScript.processed > 0? channel.processed/selectedScript.processed : 0}" />
+				<g:run path="/groovity/servlet/admin/lib/percentBar" />
+				<div style="margin:8px;text-align:center">
+					<table style="float:right">
+						<thead>
+							<tr>
+								<td>First Message</td>
+								<td>Latest Message</td>
+							</tr>
+						</thead>
+						<tr>
+							<td>${channel.firstMessage ? date.formatRelative(channel.firstMessage) : '-'}</td>
+							<td>${channel.lastMessage ? date.formatRelative(channel.lastMessage) : '-'}</td>
+						</tr>
+					</table>
+					<table style="float:left">
+						<thead>
+							<tr>
+								<td>In Queue</td>
+								<td>Dropped</td>
+								<td>Evicted</td>
+							</tr>
+						</thead>
+						<tr>
+							<td><strong>${channel.queued}</strong>
+							<g:if test="${channel.capacity > 0 && channel.capacity < 2000000000}">
+							/ ${channel.capacity}
+							</g:if>
+							</td>
+							<td>${channel.dropped}</td>
+							<td>${channel.evicted}</td>
+						</tr>
+					</table>
+					<table style="margin:0px auto">
+						<thead>
+							<tr>
+								<td>Mean</td>
+								<td>Max</td>
+								<td>Last</td>
+							</tr>
+						</thead>
+						<tr>
+							<td>${String.format('%.1fms',channel.meanProcessing ?: 0.0)}</td>
+							<td>${String.format('%.1fms',channel.maxProcessing ?: 0.0)}</td>
+							<td>${String.format('%.1fms',channel.lastProcessing ?: 0.0)}</td>
+						</tr>
+					</table>
+					
+				</div>
+			</g:each>
+		</div>
+</div>
+~>
