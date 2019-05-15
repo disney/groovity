@@ -72,7 +72,7 @@ def socket = ws(url:"${host}/ws/events"){
 	}
 }
 
-
+try{
 emit(event:'testEvent', value:'12345')
 
 socket([subscribe:'testEvent', id:"subbing"])
@@ -94,3 +94,8 @@ socket([event:'message', data:'qwertyuiop', id:'reversed'])
 assert resultLatch.await(1, TimeUnit.SECONDS)
 //compare using hash sets to ignore out-of-order, since async message order is not deterministic
 assert new HashSet(results) == new HashSet(['67890','job done','poiuytrewq'])
+}
+finally{
+	socket.close()
+	Thread.sleep(10)
+}

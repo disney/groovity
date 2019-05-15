@@ -141,6 +141,7 @@ public class GroovityServletContainer {
 			context.setAttribute("org.eclipse.jetty.server.webapp.ContainerIncludeJarPattern", su.toString());
 		}
 		server.setHandler(context);
+		server.setStopTimeout(60000);
 		// this is a patch to prevent harmless but annoying classloader issues at shutdown
 		BlockingArrayQueue<String> baq = new BlockingArrayQueue<>();
 		baq.add("test");
@@ -168,9 +169,6 @@ public class GroovityServletContainer {
 			server.stop();
 			if(delete){
 				webapp.delete();
-			}
-			if(groovity!=null) {
-				groovity.destroy();
 			}
 			Properties sysProps = System.getProperties();
 			for(Entry<String, String> entry: revertProperties.entrySet()){
