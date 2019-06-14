@@ -139,7 +139,7 @@ def error(){
 				value: [ 
 					data: message.get('data'), 
 					session: socket.session, 
-					callback: { data ->
+					callback: mId == null ? null : { data ->
 						// wrap the callback in an envelope with the request ID
 						callbackChannel.offer{
 							[
