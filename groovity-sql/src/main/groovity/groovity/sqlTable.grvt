@@ -149,6 +149,9 @@ class SqlTable{
 		def sortCol = null;
 		if(p("${id}_sortCol")){
 			sortCol = p("${id}_sortCol");
+			if(sortCol && !cols.containsKey(sortCol)){
+				sortCol = null;
+			}
 		}
 		if(sortCol==null){
 			sortCol = resolve(atts,'sortCol');
