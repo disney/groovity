@@ -34,6 +34,7 @@ import java.nio.charset.CharsetEncoder;
 import java.nio.charset.CoderResult;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Base64;
 
 import javax.servlet.ServletException;
 import javax.servlet.ServletOutputStream;
@@ -41,7 +42,6 @@ import javax.servlet.WriteListener;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpServletResponseWrapper;
-import javax.xml.bind.DatatypeConverter;
 
 import org.apache.http.impl.EnglishReasonPhraseCatalog;
 
@@ -119,7 +119,7 @@ public class GroovityServletResponseWrapper extends HttpServletResponseWrapper {
 	private boolean shouldContinue(ResponseMeta rm) {
 		setContentLength(rm.length);
 		if(!containsHeader("ETag")) {
-			String etag =  "\""+DatatypeConverter.printBase64Binary(rm.hash)+"\"";
+			String etag =  "\""+Base64.getEncoder().encodeToString(rm.hash)+"\"";
 			String inm = request.getHeader("If-None-Match");
 			if(inm!=null && inm.equals(etag)){
 				setStatus(304);

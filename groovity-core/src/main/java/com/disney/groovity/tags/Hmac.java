@@ -34,13 +34,14 @@ import java.nio.charset.Charset;
 import java.security.InvalidKeyException;
 import java.security.Key;
 import java.security.NoSuchAlgorithmException;
+import java.util.Base64;
 import java.util.Map;
 
 import javax.activation.DataSource;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
-import javax.xml.bind.DatatypeConverter;
 
+import org.apache.commons.codec.binary.Hex;
 import org.apache.http.HttpEntity;
 
 import com.disney.groovity.GroovityConstants;
@@ -227,10 +228,10 @@ public class Hmac implements Taggable{
 		else{ 
 			String encoded = null;
 			if(useEncoding.equals("base64")){
-				encoded = DatatypeConverter.printBase64Binary(sig);
+				encoded = Base64.getEncoder().encodeToString(sig);
 			}
 			else if(useEncoding.equals("hex")){
-				encoded = DatatypeConverter.printHexBinary(sig);
+				encoded = Hex.encodeHexString(sig);
 			}
 			if(var!=null){
 				bind(body,var.toString(), encoded);

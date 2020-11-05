@@ -32,6 +32,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,8 +45,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
-import static javax.xml.bind.DatatypeConverter.printBase64Binary;
 
 import javax.websocket.ClientEndpointConfig;
 import javax.websocket.CloseReason;
@@ -367,7 +366,7 @@ public class Ws implements Taggable, AuthConstants{
 										authBuilder.append(c);
 									}
 									try {
-										auths.add("Basic "+printBase64Binary(authBuilder.toString().getBytes("UTF-8")));
+										auths.add("Basic "+Base64.getEncoder().encodeToString(authBuilder.toString().getBytes("UTF-8")));
 									} catch (UnsupportedEncodingException e) {
 										log.severe(e.getMessage());
 									}

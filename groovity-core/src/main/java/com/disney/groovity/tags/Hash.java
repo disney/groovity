@@ -34,11 +34,12 @@ import java.nio.charset.Charset;
 import java.security.InvalidKeyException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Base64;
 import java.util.Map;
 
 import javax.activation.DataSource;
-import javax.xml.bind.DatatypeConverter;
 
+import org.apache.commons.codec.binary.Hex;
 import org.apache.http.HttpEntity;
 
 import com.disney.groovity.GroovityConstants;
@@ -204,10 +205,10 @@ public class Hash implements Taggable{
 		else{ 
 			String encoded = null;
 			if(useEncoding.equals("base64")){
-				encoded = DatatypeConverter.printBase64Binary(hash);
+				encoded = Base64.getEncoder().encodeToString(hash);
 			}
 			else if(useEncoding.equals("hex")){
-				encoded = DatatypeConverter.printHexBinary(hash);
+				encoded = Hex.encodeHexString(hash);
 			}
 			if(var!=null){
 				bind(body,var.toString(), encoded);

@@ -26,8 +26,8 @@ package com.disney.http.auth.client.keyloader;
 import com.disney.http.auth.Algorithms;
 
 import javax.crypto.spec.SecretKeySpec;
-import javax.xml.bind.DatatypeConverter;
 import java.security.Key;
+import java.util.Base64;
 import java.util.concurrent.Callable;
 
 /**
@@ -45,7 +45,7 @@ public class KeyObjectKeyLoader implements Callable<Key> {
     public KeyObjectKeyLoader(String algorithm, String keyValue) throws Exception {
         String signingAlgorithm = Algorithms.getSecurityAlgorithm(algorithm);
         if (signingAlgorithm.startsWith("Hmac")) {
-            this.key = new SecretKeySpec(DatatypeConverter.parseBase64Binary(keyValue), signingAlgorithm);
+            this.key = new SecretKeySpec(Base64.getDecoder().decode(keyValue), signingAlgorithm);
         } else if(signingAlgorithm.endsWith("RSA")){
             throw new Exception("Cannot use KeyObjectKeyLoader to generate RSA keys");
         }

@@ -31,6 +31,7 @@ import java.net.URI;
 import java.net.URL;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -46,7 +47,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
 
-import javax.xml.bind.DatatypeConverter;
 import javax.xml.bind.JAXBElement;
 import javax.xml.bind.annotation.XmlAttribute;
 import javax.xml.bind.annotation.XmlElement;
@@ -208,7 +208,7 @@ public class ModelXmlWriter extends ModelWalker{
 			return true;
 		}
 		if(o instanceof byte[]) {
-			escape.write(DatatypeConverter.printBase64Binary((byte[]) o));
+			escape.write(Base64.getEncoder().encodeToString((byte[]) o));
 			return true;
 		}
 		return false;

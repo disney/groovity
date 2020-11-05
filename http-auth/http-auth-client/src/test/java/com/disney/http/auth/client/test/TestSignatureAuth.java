@@ -46,12 +46,12 @@ import org.junit.Test;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
-import javax.xml.bind.DatatypeConverter;
 
 import java.io.File;
 import java.security.*;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -77,7 +77,7 @@ public class TestSignatureAuth implements AuthConstants {
 
     private byte[] signHmac(String algorithm, String keyValue, String data) throws Exception{
         String securityAlgorithm = Algorithms.getSecurityAlgorithm(algorithm);
-        Key hmacKey = new SecretKeySpec(DatatypeConverter.parseBase64Binary(keyValue), securityAlgorithm);
+        Key hmacKey = new SecretKeySpec(Base64.getDecoder().decode(keyValue), securityAlgorithm);
 
         Mac mac = Mac.getInstance(securityAlgorithm);
         mac.init(hmacKey);
@@ -183,7 +183,7 @@ public class TestSignatureAuth implements AuthConstants {
         Assert.assertFalse(Arrays.equals(signHmac(algorithm, keyValue, signingString + "invalid"), signature));
 
         // wrong key
-        signer.setKeyLoader(new KeyObjectKeyLoader(algorithm, "differentKeyValue"));
+        signer.setKeyLoader(new KeyObjectKeyLoader(algorithm, Base64.getEncoder().encodeToString( "differentKeyValue".getBytes())));
         signer.process(request, localContext);
         signature = signer.doAuthorization(request).getSignature();
         Assert.assertFalse("Wrong Key", Arrays.equals(expectedResult, signature));

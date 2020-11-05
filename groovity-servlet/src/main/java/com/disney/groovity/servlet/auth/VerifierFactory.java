@@ -41,6 +41,7 @@ import java.security.cert.CertificateFactory;
 import java.security.spec.InvalidKeySpecException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -50,7 +51,6 @@ import java.util.stream.Collectors;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
-import javax.xml.bind.DatatypeConverter;
 
 import org.codehaus.groovy.runtime.typehandling.DefaultTypeTransformation;
 
@@ -263,17 +263,13 @@ public class VerifierFactory {
 				Key key;
 				if(signingAlg.startsWith("Hmac")){
 					//expect base 64 encoding
-					key = new SecretKeySpec(DatatypeConverter.parseBase64Binary(secret.toString()), signingAlg);
+					key = new SecretKeySpec(Base64.getDecoder().decode(secret.toString()), signingAlg);
 				}
 				else{
 					//expect x509 encoding
 					CertificateFactory certificateFactory = CertificateFactory.getInstance("X509");
-					Certificate certificate = certificateFactory.generateCertificate(new ByteArrayInputStream(DatatypeConverter.parseBase64Binary(secret.toString())));
+					Certificate certificate = certificateFactory.generateCertificate(new ByteArrayInputStream(Base64.getDecoder().decode(secret.toString())));
 					key = certificate.getPublicKey();
-					/*X509EncodedKeySpec pubKeySpec = new X509EncodedKeySpec(DatatypeConverter.parseBase64Binary(secret.toString()));
-					KeyFactory factory = KeyFactory.getInstance("rsa");
-					key = factory.generatePublic(pubKeySpec);
-					*/
 				}
 				realKeys.put(entry.getKey().toString(), key);
 			}

@@ -30,45 +30,46 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import javax.crypto.spec.SecretKeySpec;
-import javax.xml.bind.DatatypeConverter;
 import java.security.*;
+import java.util.Base64;
 
 /**
  * @author Rachel Kobayashi
  */
 public class TestKeyObjectKeyLoader {
+    String sampleKey = Base64.getEncoder().encodeToString("something else".getBytes());
     HttpClientContext context = new HttpClientContext();
 
     @Test(expected=NoSuchAlgorithmException.class)
     public void testKeyObjectKeyLoaderBadAlgorithm() throws Exception{
-        KeyObjectKeyLoader loader = new KeyObjectKeyLoader("DSA", "something else");
+        KeyObjectKeyLoader loader = new KeyObjectKeyLoader("DSA", sampleKey);
         loader.call();
     }
 
     @Test(expected=NoSuchAlgorithmException.class)
     public void testKeyObjectKeyLoaderBadAlgorithmFormat() throws Exception{
-        KeyObjectKeyLoader loader = new KeyObjectKeyLoader("HmacSHA384", "something else");
+        KeyObjectKeyLoader loader = new KeyObjectKeyLoader("HmacSHA384", sampleKey);
         loader.call();
     }
 
     @Test(expected=NoSuchAlgorithmException.class)
     public void testKeyObjectKeyLoaderBadAHmacFormat() throws Exception{
-        KeyObjectKeyLoader loader = new KeyObjectKeyLoader("hacm-sha23", "something else");
+        KeyObjectKeyLoader loader = new KeyObjectKeyLoader("hacm-sha23", sampleKey);
         loader.call();
     }
 
     @Test(expected=Exception.class)
     public void testKeyObjectKeyLoaderRSA() throws Exception{
-        KeyObjectKeyLoader loader = new KeyObjectKeyLoader("rsa-sha1", "something else");
+        KeyObjectKeyLoader loader = new KeyObjectKeyLoader("rsa-sha1", sampleKey);
         loader.call();
     }
 
     @Test
     public void testKeyObjectKeyLoaderGoodAlgorithms() throws Exception{
-        KeyObjectKeyLoader loader = new KeyObjectKeyLoader("hmac-sha1", "something else");
+        KeyObjectKeyLoader loader = new KeyObjectKeyLoader("hmac-sha1", sampleKey);
         loader.call();
 
-        loader = new KeyObjectKeyLoader("hmac-md5", "something else");
+        loader = new KeyObjectKeyLoader("hmac-md5", sampleKey);
         loader.call();
     }
 
@@ -89,7 +90,7 @@ public class TestKeyObjectKeyLoader {
         Assert.assertEquals(publicKey, loadedPublicKey);
 
         // test with secret key
-        Key key = new SecretKeySpec(DatatypeConverter.parseBase64Binary("someString"), "HmacMD5");
+        Key key = new SecretKeySpec(Base64.getDecoder().decode(sampleKey), "HmacMD5");
         loader = new KeyObjectKeyLoader(key);
         Key loadedKey = loader.call();
         Assert.assertEquals(key, loadedKey);

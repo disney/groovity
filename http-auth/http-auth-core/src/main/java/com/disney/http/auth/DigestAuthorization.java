@@ -26,7 +26,6 @@ package com.disney.http.auth;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
-import javax.xml.bind.DatatypeConverter;
 
 /**
  * Parse or format a Digest Authorization header
@@ -93,7 +92,7 @@ public class DigestAuthorization implements AuthConstants{
 						this.opaque = value;
 					}
 					else if(RESPONSE.equals(key)){
-						this.digest = (DatatypeConverter.parseHexBinary(value));
+						this.digest = decodeHex(value);
 					}
 					else if(ALGORITHM.equals(key)){
 						if(value!=null && !value.trim().equals("")){
@@ -117,6 +116,26 @@ public class DigestAuthorization implements AuthConstants{
 				}
 	}
 
+	public static String encodeHex(byte[] value) {
+		char[] encoded = new char[value.length*2];
+		int p = 0;
+		for(int i=0; i < value.length; i++){
+			byte b = value[i];
+			encoded[p++] = Character.forDigit((b >> 4) & 0xF, 16);
+			encoded[p++] = Character.forDigit((b & 0xF), 16);
+		}
+		return new String(encoded);
+	}
+
+	public static byte[] decodeHex(String str) {
+		byte[] decoded = new byte[str.length()/2];
+		for(int i=0; i< str.length(); i+=2) {
+			int result = Character.digit(str.charAt(i), 16) << 4;
+			result += Character.digit(str.charAt(i+1), 16);
+			decoded[i/2]=(byte)result;
+		}
+		return decoded;
+	}
 	public String getUsername() {
 		return username;
 	}
@@ -214,7 +233,7 @@ public class DigestAuthorization implements AuthConstants{
 				md5.update(strings[i].getBytes());
 			}
 		}
-		return DatatypeConverter.printHexBinary(md5.digest()).toLowerCase();
+		return encodeHex(md5.digest()).toLowerCase();
 	}
 	
 	public String toString(){
@@ -228,7 +247,7 @@ public class DigestAuthorization implements AuthConstants{
 			sb.append("nc=").append(nonceCount).append(", ");
 			sb.append("cnonce=\"").append(cnonce).append("\", ");
 		}
-		sb.append("response=\"").append(DatatypeConverter.printHexBinary(digest).toLowerCase()).append("\", ");
+		sb.append("response=\"").append(encodeHex(digest).toLowerCase()).append("\", ");
 		sb.append("opaque=\"").append(opaque).append("\"");
 		return sb.toString();
 	}

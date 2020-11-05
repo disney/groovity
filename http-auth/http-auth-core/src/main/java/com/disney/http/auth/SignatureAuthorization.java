@@ -24,9 +24,8 @@
 package com.disney.http.auth;
 
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.List;
-
-import javax.xml.bind.DatatypeConverter;
 
 /**
  * Parse or format an authorization signature string from or to a header
@@ -73,7 +72,7 @@ public class SignatureAuthorization implements AuthConstants {
 				this.setAlgorithm(value);
 			}
 			else if(SIGNATURE.equals(key)){
-				this.setSignature(DatatypeConverter.parseBase64Binary(value));
+				this.setSignature(Base64.getDecoder().decode(value));
 			}
 			else{
 				throw new IllegalArgumentException("Unrecognized component of signature: "+key);
@@ -148,7 +147,7 @@ public class SignatureAuthorization implements AuthConstants {
 			builder.append(headers.get(i));
 		}
 		builder.append("\",");
-		builder.append(SIGNATURE).append("=\"").append(DatatypeConverter.printBase64Binary(signature)).append("\"");
+		builder.append(SIGNATURE).append("=\"").append(Base64.getEncoder().encodeToString(signature)).append("\"");
 		return builder.toString();
 	}
 

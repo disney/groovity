@@ -26,13 +26,13 @@ package com.disney.groovity.servlet.test;
 import java.io.IOException;
 import java.security.MessageDigest;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
 import javax.servlet.ServletException;
-import javax.xml.bind.DatatypeConverter;
 
 import static org.junit.Assert.*;
 
@@ -137,7 +137,7 @@ public class GroovityServletTest {
 	private String doBuffered(String input) throws Exception{
 		MessageDigest digest = MessageDigest.getInstance("MD5");
 		byte[] hash = digest.digest(input.getBytes());
-		String hashStr = "\""+DatatypeConverter.printBase64Binary(hash)+"\"";
+		String hashStr = "\""+Base64.getEncoder().encodeToString(hash)+"\"";
 		MockHttpServletResponse response = bufferedResponse(input);
 		assertEquals(input.length(), response.getContentLength());
 		assertEquals(hashStr, response.getHeader("ETag"));
@@ -175,7 +175,7 @@ public class GroovityServletTest {
 	private String doBufferedBytes(String input) throws Exception{
 		MessageDigest digest = MessageDigest.getInstance("MD5");
 		byte[] hash = digest.digest(input.getBytes());
-		String hashStr = "\""+DatatypeConverter.printBase64Binary(hash)+"\"";
+		String hashStr = "\""+Base64.getEncoder().encodeToString(hash)+"\"";
 		MockHttpServletResponse response = bufferedBytesResponse(input);
 		assertEquals(input.length(), response.getContentLength());
 		assertEquals(hashStr, response.getHeader("ETag"));

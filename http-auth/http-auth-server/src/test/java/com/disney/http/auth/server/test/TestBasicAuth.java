@@ -25,11 +25,10 @@ package com.disney.http.auth.server.test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import javax.xml.bind.DatatypeConverter;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -62,12 +61,12 @@ public class TestBasicAuth implements AuthConstants{
 		ServerAuthorizationRequest areq = new ServletAuthorizationRequest(request);
 		VerifierResult result = verifier.verify(areq);
 		Assert.assertEquals(ERROR_MISSING_CREDENTIALS, result.getMessage());
-		request.addHeader("Authorization", "Basic "+DatatypeConverter.printBase64Binary("mykey:wrongpass".getBytes()));
+		request.addHeader("Authorization", "Basic "+Base64.getEncoder().encodeToString("mykey:wrongpass".getBytes()));
 		result = verifier.verify(areq);
 		Assert.assertEquals(ERROR_UNKNOWN_CREDENTIALS, result.getMessage());
 		
 		request = new MockHttpServletRequest();
-		request.addHeader("Authorization", "Basic "+DatatypeConverter.printBase64Binary("mykey:mypass".getBytes()));
+		request.addHeader("Authorization", "Basic "+Base64.getEncoder().encodeToString("mykey:mypass".getBytes()));
 		areq = new ServletAuthorizationRequest(request);
 		result = verifier.verify(areq);
 		Assert.assertTrue("Expected successful authentication",result.isAuthenticated());

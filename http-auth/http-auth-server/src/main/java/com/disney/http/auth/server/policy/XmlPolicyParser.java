@@ -35,6 +35,7 @@ import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,7 +43,6 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import javax.crypto.spec.SecretKeySpec;
 import javax.servlet.ServletContext;
-import javax.xml.bind.DatatypeConverter;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -221,11 +221,11 @@ public class XmlPolicyParser {
 			String signingAlg = Algorithms.getSecurityAlgorithm(keyAlg);
 			if(signingAlg.startsWith("Hmac")){
 				//expect base 64 encoding
-				key = new SecretKeySpec(DatatypeConverter.parseBase64Binary(keyVal), signingAlg);
+				key = new SecretKeySpec(Base64.getDecoder().decode(keyVal), signingAlg);
 			}
 			else{
 				//expect x509 encoding
-				X509EncodedKeySpec pubKeySpec = new X509EncodedKeySpec(DatatypeConverter.parseBase64Binary(keyVal));
+				X509EncodedKeySpec pubKeySpec = new X509EncodedKeySpec(Base64.getDecoder().decode(keyVal));
 				KeyFactory factory = KeyFactory.getInstance("rsa");
 				key = factory.generatePublic(pubKeySpec);
 			}

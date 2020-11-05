@@ -26,6 +26,7 @@ package com.disney.groovity.tags;
 import java.net.URI;
 import java.security.Key;
 import java.security.KeyStore;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,7 +35,6 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 
 import javax.crypto.spec.SecretKeySpec;
-import javax.xml.bind.DatatypeConverter;
 
 import com.disney.groovity.Taggable;
 import com.disney.groovity.doc.Attr;
@@ -198,7 +198,7 @@ public class Signature implements Taggable {
 			else{
 				String signingAlg = Algorithms.getSecurityAlgorithm(useAlgorithm);
 				//System.out.println("Generating hmac key "+signingAlg+" with "+new String(DatatypeConverter.parseBase64Binary(key.toString())));
-				useLoader = new KeyObjectKeyLoader(new SecretKeySpec(DatatypeConverter.parseBase64Binary(key.toString()), signingAlg));
+				useLoader = new KeyObjectKeyLoader(new SecretKeySpec(Base64.getDecoder().decode(key.toString()), signingAlg));
 			}
 		}
 		Object headers = resolve(attributes,"headers");

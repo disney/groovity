@@ -32,6 +32,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.security.MessageDigest;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -40,7 +41,6 @@ import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicReference;
 
 import javax.activation.DataSource;
-import javax.xml.bind.DatatypeConverter;
 
 import com.disney.groovity.model.Model;
 import com.disney.groovity.model.ModelFilter;
@@ -172,7 +172,7 @@ public class Attachment implements Model, DataSource {
 			}
 		}
 		byte[] d = digest.digest();
-		String m = DatatypeConverter.printBase64Binary(d);
+		String m = Base64.getEncoder().encodeToString(d);
 		if(md5==null || !md5.equals(m)) {
 			setMd5(m);
 			modified = new Date();

@@ -41,8 +41,6 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.Assert;
 
-import javax.xml.bind.DatatypeConverter;
-
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -58,6 +56,7 @@ import java.security.Security;
 import java.security.Signature;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateFactory;
+import java.util.Base64;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -117,14 +116,6 @@ public class TestKeyUtils {
         KeyPair loadedPrivateKey = pkParcel.call();
         Assert.assertArrayEquals(privateKey.getEncoded(), loadedPrivateKey.getPrivate().getEncoded());
 
-        // check storage and retrieval of public key
-        String publicKeyFileName = "testPublicKey.store";
-        String password = "publicPassword";
-        File publicKeyFile = new File("target/"+publicKeyFileName);
-        KeyUtils.writePublicKeyStoreToFile(publicKey, publicKeyFile.getAbsolutePath(), alias, password);
-        PublicKey loadedPublicKey = loadPublicKeyStore(publicKeyFile.getAbsolutePath(), alias, password);
-        Assert.assertArrayEquals(publicKey.getEncoded(), loadedPublicKey.getEncoded());
-
         // check if valid key pair by trying to sign and verify a string
         String testString = "This is the message to encode.";
         Signature rsaSign = Signature.getInstance("MD5withRSA");
@@ -133,7 +124,7 @@ public class TestKeyUtils {
         byte[] signedMessage = rsaSign.sign();
 
         Signature rsaVerify = Signature.getInstance("MD5withRSA");
-        rsaVerify.initVerify(loadedPublicKey);
+        rsaVerify.initVerify(publicKey);
         rsaVerify.update(testString.getBytes("UTF-8"));
         boolean valid = rsaVerify.verify(signedMessage);
         Assert.assertTrue(valid);
@@ -163,7 +154,7 @@ public class TestKeyUtils {
     public void testKeyStringParsing() throws Exception {
         String testKeyData = "Encode this text: May 1, 2015";
 
-        String base64KeyData = DatatypeConverter.printBase64Binary(testKeyData.getBytes());
+        String base64KeyData = Base64.getEncoder().encodeToString(testKeyData.getBytes());
 
         // no preface around key;
         Assert.assertEquals("No preface", base64KeyData, KeyUtils.findKey(base64KeyData));
@@ -179,17 +170,6 @@ public class TestKeyUtils {
         privateKeyString = "-----BEGIN PRIVATE KEY-----\n\n\n\n\n\n"+
                 base64KeyData+"\n\n-----END PRIVATE KEY-----";
         Assert.assertEquals("With extra new lines", base64KeyData, KeyUtils.findKey(privateKeyString));
-    }
-
-    private PublicKey loadPublicKeyStore(String fileName, String alias, String password) throws Exception{
-    	Map<String,Object> config = new HashMap<String,Object>();
-    	config.put(KeyStoreValueHandler.KEYSTORE_PASSWORD, password);
-    	config.put(KeyStoreValueHandler.KEYSTORE_TYPE, "JCEKS");
-    	URIParcel<KeyStore> parcel = new URIParcel<KeyStore>(KeyStore.class,new File(fileName).toURI(),config);
-
-        KeyStore ks = parcel.call();
-        PublicKey publicKey = (PublicKey) ks.getKey(alias, password.toCharArray());
-        return publicKey;
     }
 
     private void writePrivateKeystoreToFile(KeyPair keyPair, String fileName, String alias, String password) throws Exception{

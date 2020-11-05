@@ -29,10 +29,10 @@ import java.io.IOException;
 import java.io.Writer;
 import java.net.URI;
 import java.net.URL;
+import java.util.Base64;
 import java.util.Date;
 import java.util.concurrent.Future;
 
-import javax.xml.bind.DatatypeConverter;
 import javax.xml.bind.JAXBElement;
 import javax.xml.transform.OutputKeys;
 import javax.xml.transform.Transformer;
@@ -154,7 +154,7 @@ public class ModelJsonWriter extends ModelWalker{
 		}
 		else if(o instanceof byte[]) {
 			writer.write('"');
-			escape.write(DatatypeConverter.printBase64Binary((byte[]) o));
+			escape.write(Base64.getEncoder().encodeToString((byte[]) o));
 			writer.write('"');
 		}
 		else if(o instanceof Node) {

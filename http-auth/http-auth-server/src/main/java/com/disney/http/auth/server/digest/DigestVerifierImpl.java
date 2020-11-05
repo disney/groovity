@@ -29,12 +29,12 @@ import java.io.UnsupportedEncodingException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.List;
-
-import javax.xml.bind.DatatypeConverter;
 
 import com.disney.http.auth.AuthConstants;
 import com.disney.http.auth.DigestAuthorization;
+import static com.disney.http.auth.DigestAuthorization.encodeHex;
 import com.disney.http.auth.server.AbstractVerifier;
 import com.disney.http.auth.server.AuthenticatedPrincipal;
 import com.disney.http.auth.server.ServerAuthorizationRequest;
@@ -82,7 +82,7 @@ public class DigestVerifierImpl extends AbstractVerifier implements AuthConstant
 			return result;
 		}
 		String nonce = authd.getNonce();
-		byte[] nonceBytes = DatatypeConverter.parseBase64Binary(nonce);
+		byte[] nonceBytes = Base64.getDecoder().decode(nonce);
 		//validate timestamp
 		long timestamp = toLong(nonceBytes);
 		//validate nonce
@@ -91,13 +91,13 @@ public class DigestVerifierImpl extends AbstractVerifier implements AuthConstant
 			return result;
 		}
 		//validate digest
-		byte[] ha2 = DatatypeConverter.printHexBinary(md5.digest((request.getMethod()+":"+authd.getUri()).getBytes("UTF-8"))).toLowerCase().getBytes();
+		byte[] ha2 = encodeHex(md5.digest((request.getMethod()+":"+authd.getUri()).getBytes("UTF-8"))).toLowerCase().getBytes();
 		for(int i=0;i<passwordDigesters.size();i++){
 			PasswordDigester digester = passwordDigesters.get(i);
 			byte[] ha1 = digester.digest(authd.getUsername(), getRealm());
 			if(ha1!=null){
 				ByteArrayOutputStream baos = new ByteArrayOutputStream(200);
-				baos.write(DatatypeConverter.printHexBinary(ha1).toLowerCase().getBytes());
+				baos.write(encodeHex(ha1).toLowerCase().getBytes());
 				baos.write((byte)':');
 				baos.write(nonce.getBytes());
 				baos.write((byte)':');
@@ -118,9 +118,9 @@ public class DigestVerifierImpl extends AbstractVerifier implements AuthConstant
 					if("auth".equals(authd.getQop())){
 						md5.reset();
 						md5.update(rd);
-						md5.update(DatatypeConverter.printHexBinary(md5.digest((":"+authd.getUri()).getBytes("UTF-8"))).toLowerCase().getBytes());
+						md5.update(encodeHex(md5.digest((":"+authd.getUri()).getBytes("UTF-8"))).toLowerCase().getBytes());
 						byte[] rspAuth = md5.digest();
-						result.setAuthenticationInfo("qop=\""+authd.getQop()+"\",cnonce=\""+authd.getCnonce()+"\",nc="+authd.getNonceCount()+",rspauth=\""+DatatypeConverter.printHexBinary(rspAuth).toLowerCase()+"\"");
+						result.setAuthenticationInfo("qop=\""+authd.getQop()+"\",cnonce=\""+authd.getCnonce()+"\",nc="+authd.getNonceCount()+",rspauth=\""+encodeHex(rspAuth).toLowerCase()+"\"");
 					}
 					if((System.currentTimeMillis()-timestamp) > maxNonceAge){
 						challenge(request, md5,result,ERROR_STALE_NONCE,true);
@@ -142,7 +142,7 @@ public class DigestVerifierImpl extends AbstractVerifier implements AuthConstant
 		authn.append(" ").append(REALM).append("=\"").append(getRealm()).append("\", qop=\"auth\", nonce=\"");
 		long curTime = System.currentTimeMillis();
 		authn.append(makeNonce(digester,curTime)).append("\", opaque=\"");
-		authn.append(DatatypeConverter.printBase64Binary(toBytes(curTime))).append("\"");
+		authn.append(Base64.getEncoder().encodeToString(toBytes(curTime))).append("\"");
 		if(domain!=null){
 			authn.append(", domain=\"").append(domain).append("\"");
 		}
@@ -162,7 +162,7 @@ public class DigestVerifierImpl extends AbstractVerifier implements AuthConstant
 		byte[] nonce = new byte[nonceHash.length+8];
 		toBytes(timestamp,nonce);
 		System.arraycopy(nonceHash, 0, nonce, 8, nonceHash.length);
-		return DatatypeConverter.printBase64Binary(nonce);
+		return Base64.getEncoder().encodeToString(nonce);
 	}
 	
 	public static byte[] toBytes(long val) {

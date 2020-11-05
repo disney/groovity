@@ -23,10 +23,10 @@
  *******************************************************************************/
 package com.disney.http.auth.client;
 
-import javax.xml.bind.DatatypeConverter;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.security.*;
+import java.util.Base64;
 
 /**
  * General utility functions to help with the generation of RSA keys, and reading/writing of keys from files.
@@ -114,7 +114,7 @@ public class KeyUtils {
      */
     public static void writeKeyToFile(Key key, String fileName, String prefix, String suffix) throws IOException{
         byte[] keyBytes = key.getEncoded();
-        String base64Key = DatatypeConverter.printBase64Binary(keyBytes);
+        String base64Key = Base64.getEncoder().encodeToString(keyBytes);
 
         FileOutputStream keyFOS = new FileOutputStream(fileName);
         if(prefix != null) {

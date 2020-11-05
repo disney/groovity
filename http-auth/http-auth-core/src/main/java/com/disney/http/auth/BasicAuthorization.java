@@ -24,8 +24,7 @@
 package com.disney.http.auth;
 
 import java.io.UnsupportedEncodingException;
-
-import javax.xml.bind.DatatypeConverter;
+import java.util.Base64;
 
 /**
  * Parse or format a Basic Authorization header
@@ -46,13 +45,13 @@ public class BasicAuthorization implements AuthConstants {
 		}
 		String creds;
 		try {
-			creds = new String(DatatypeConverter.parseBase64Binary(authorizationHeader),"UTF-8");
+			creds = new String(Base64.getDecoder().decode(authorizationHeader),"UTF-8");
 			int pos = creds.indexOf(":");
 			if(pos > 0){
 				username = creds.substring(0,pos);
 				password = creds.substring(pos+1);
 			}
-		} catch (UnsupportedEncodingException e) {
+		} catch (UnsupportedEncodingException | IllegalArgumentException e) {
 		}
 		
 		if(username==null ||password==null){
@@ -79,7 +78,7 @@ public class BasicAuthorization implements AuthConstants {
 	public String toString(){
 		StringBuilder sb = new StringBuilder(BASIC);
 		try {
-			sb.append(" ").append(DatatypeConverter.printBase64Binary((username+":"+password).getBytes("UTF-8")));
+			sb.append(" ").append(Base64.getEncoder().encodeToString((username+":"+password).getBytes("UTF-8")));
 		} catch (UnsupportedEncodingException e) {
 		}
 		return sb.toString();
