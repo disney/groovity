@@ -51,7 +51,7 @@ public static init(){
 			created DATETIME NOT NULL, 
 			modified DATETIME NOT NULL, 
 			PRIMARY KEY (id),
-			FOREIGN KEY (userId) REFERENCES users(id),
+			FOREIGN KEY (userId) REFERENCES users(id)
 		)
 	'''
 	])

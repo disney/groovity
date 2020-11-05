@@ -32,12 +32,10 @@ static conf=[
 ]
 
 // Domain model: a single Note 
-public class Note implements DataModel, Stored, HasRowId {
+public class Note implements DataModel, Stored, HasRowId, CreatedModified {
 	long userId;
 	String message;
 	boolean worldRead;
-	Date created;
-	Date modified;
 	
 	@ModelSkip public String getUserName(){
 		if(userId){

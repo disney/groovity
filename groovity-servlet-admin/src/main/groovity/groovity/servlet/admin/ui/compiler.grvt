@@ -68,7 +68,7 @@ if(userName){
 }
 else{
 	//look for user name in cookies
-	Cookie userCookie = ((request.cookies) as List).find{it.name=='groovityUser'};
+	Cookie userCookie = (request.cookies as List).find{it.name=='groovityUser'};
 	if(userCookie){
 		userName = userCookie.value
 	}

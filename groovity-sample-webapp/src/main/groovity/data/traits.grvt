@@ -1,0 +1,10 @@
+trait CreatedModified implements Store{
+	Date created
+	Date modified
+	
+	Store store(){
+		modified = new Date()
+		created = created ?: modified
+		super.store()
+	}
+}

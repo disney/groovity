@@ -111,7 +111,7 @@ public class MetaPropertyLookup {
 			}
 			CachedField cf = mbp.getField();
 			if(cf != null) {
-				return cf.field.getAnnotation(annotationClass);
+				return cf.getCachedField().getAnnotation(annotationClass);
 			}
 		}
 		return null;
@@ -188,7 +188,7 @@ public class MetaPropertyLookup {
 					if(mp instanceof MetaBeanProperty) {
 						MetaBeanProperty mbp = ((MetaBeanProperty)mp);
 						if(mbp.getField()!=null) {
-							ModelSkip skipAnn = mbp.getField().field.getAnnotation(ModelSkip.class);
+							ModelSkip skipAnn = mbp.getField().getCachedField().getAnnotation(ModelSkip.class);
 							if(skipAnn!=null) {
 								continue;
 							}

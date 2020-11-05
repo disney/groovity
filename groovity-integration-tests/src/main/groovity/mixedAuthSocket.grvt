@@ -35,7 +35,7 @@ static web=[
 				]
 			]
 		],
-		,[
+		[
 			type:'digest',
 			realm:'Digest Mix', 
 			nonceSecret:'aishfiwuefh',

@@ -160,7 +160,7 @@ public interface Model extends Externalizable{
 					CachedField cf = mbp.getField();
 					Type type = mp.getType();
 					if(cf!=null) {
-						type = cf.field.getGenericType();
+						type = cf.getCachedField().getGenericType();
 					}
 					else {
 						MetaMethod mm = mbp.getGetter();
