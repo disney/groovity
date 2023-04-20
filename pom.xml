@@ -45,14 +45,14 @@
 			<roles>
 				<role>developer</role>
 			</roles>
-			<email />
+			<email/>
 		</developer>
 	</developers>
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<groovy.version>2.5.6</groovy.version>
 		<spring.version>4.3.23.RELEASE</spring.version>
-		<jetty.version>9.4.17.v20190418</jetty.version>
+		<jetty.version>9.4.51.v20230217</jetty.version>
 		<http.client.version>4.5.8</http.client.version>
 		<bouncycastle.version>1.61</bouncycastle.version>
 		<servlet.api.version>3.1.0</servlet.api.version>
